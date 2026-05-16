@@ -34,20 +34,20 @@ export default async function TotpPage({
       ) : (
         <form action={verifyTotpAction} className="mt-6 space-y-3">
           <input type="hidden" name="callbackUrl" value={callbackUrl} />
-          <label className="block text-sm font-medium">6-digit code</label>
+          <label className="block text-sm font-medium">
+            6-digit code or recovery code
+          </label>
           <input
             name="token"
-            inputMode="numeric"
             autoComplete="one-time-code"
-            pattern="[0-9]{6}"
             required
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-base tracking-widest"
-            placeholder="123456"
+            placeholder="123456 or ABCD-EFGH"
             autoFocus
           />
           {sp.error === "invalid" && (
             <p className="text-sm text-red-500">
-              That code didn&apos;t match. Try again.
+              That code didn&apos;t match. Try again, or use a recovery code.
             </p>
           )}
           <button

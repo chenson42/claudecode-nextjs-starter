@@ -30,7 +30,8 @@ export const users = pgTable("users", {
     .defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
-    .defaultNow(),
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const accounts = pgTable(
@@ -139,6 +140,24 @@ export const userTotp = pgTable("user_totp", {
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
 });
 
+// Pending enrollments. The user has scanned a QR code but not yet confirmed
+// the first 6-digit code. Holding the ciphertext server-side closes the
+// "client posts back any secret it wants" gap. One row per user; expires after
+// 10 minutes to keep dead rows from accumulating.
+export const userTotpPendingEnrollments = pgTable(
+  "user_totp_pending_enrollments",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    secretCiphertext: text("secret_ciphertext").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
 export const userTotpRecoveryCodes = pgTable(
   "user_totp_recovery_codes",
   {
@@ -148,28 +167,11 @@ export const userTotpRecoveryCodes = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     codeHash: text("code_hash").notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
-  },
-  (t) => [index("ix_recovery_user").on(t.userId)],
-);
-
-export const userTotpTrustedDevices = pgTable(
-  "user_totp_trusted_devices",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    tokenHash: text("token_hash").notNull(),
-    label: text("label"),
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+    createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },
-  (t) => [
-    index("ix_trusted_user").on(t.userId),
-    uniqueIndex("ix_trusted_token").on(t.tokenHash),
-  ],
+  (t) => [index("ix_recovery_user").on(t.userId)],
 );
 
 // Feature flags — distinct from permissions. Permissions are "is this user
@@ -209,6 +211,7 @@ export const auditEvents = pgTable(
   (t) => [
     index("ix_audit_actor").on(t.actorUserId),
     index("ix_audit_action_time").on(t.action, t.createdAt),
+    index("ix_audit_created").on(t.createdAt),
   ],
 );
 

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/auth";
-import { FEATURES } from "@/lib/permissions";
+import { edgeAuth } from "@/lib/auth/config";
+import { ADMIN_ROLE, FEATURES } from "@/lib/permissions";
 
 const PUBLIC_PATHS = new Set([
   "/",
@@ -13,7 +13,6 @@ const PUBLIC_PATHS = new Set([
 
 const PROTECTION_RULES: Array<{ pattern: RegExp; required: string }> = [
   { pattern: /^\/admin\/users/, required: FEATURES.ADMIN_USERS },
-  { pattern: /^\/admin\/roles/, required: FEATURES.ADMIN_ROLES },
   { pattern: /^\/admin\/flags/, required: FEATURES.ADMIN_FLAGS },
   { pattern: /^\/admin\/docs/, required: FEATURES.ADMIN_RELEASE_NOTES },
   { pattern: /^\/admin/, required: FEATURES.ADMIN_DASHBOARD },
@@ -25,7 +24,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith("/api/")) return NextResponse.next();
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
-  const session = await auth();
+  const session = await edgeAuth();
   if (!session?.user) {
     const url = new URL("/signin", req.url);
     url.searchParams.set("callbackUrl", pathname);
@@ -48,7 +47,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (session.user.roles?.includes("admin")) return NextResponse.next();
+  if (session.user.roles?.includes(ADMIN_ROLE)) return NextResponse.next();
 
   for (const rule of PROTECTION_RULES) {
     if (rule.pattern.test(pathname)) {

@@ -1,10 +1,32 @@
 import { db } from "@/lib/db";
 import { users, roles, userRoles } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, ilike, or, sql } from "drizzle-orm";
+import Link from "next/link";
 import { assignRoleAction, removeRoleAction } from "./actions";
 
-export default async function UsersPage() {
-  const allUsers = await db
+const PAGE_SIZE = 25;
+
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const page = Math.max(1, Number(sp.page ?? 1));
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const whereExpr = q
+    ? or(ilike(users.email, `%${q}%`), ilike(users.name, `%${q}%`))
+    : undefined;
+
+  const [{ count: totalRaw }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(users)
+    .where(whereExpr);
+  const total = Number(totalRaw);
+
+  const rows = await db
     .select({
       id: users.id,
       name: users.name,
@@ -13,7 +35,10 @@ export default async function UsersPage() {
       lastLoginAt: users.lastLoginAt,
     })
     .from(users)
-    .orderBy(desc(users.createdAt));
+    .where(whereExpr)
+    .orderBy(desc(users.createdAt))
+    .limit(PAGE_SIZE)
+    .offset(offset);
 
   const allRoles = await db
     .select({ id: roles.id, name: roles.name, displayName: roles.displayName })
@@ -21,11 +46,13 @@ export default async function UsersPage() {
     .orderBy(roles.sortOrder);
 
   const rolesByUser = new Map<string, string[]>();
-  if (allUsers.length > 0) {
+  if (rows.length > 0) {
+    const userIds = rows.map((r) => r.id);
     const ur = await db
       .select({ userId: userRoles.userId, roleName: roles.name })
       .from(userRoles)
-      .innerJoin(roles, eq(userRoles.roleId, roles.id));
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(sql`${userRoles.userId} = ANY(${userIds})`);
     for (const row of ur) {
       const list = rolesByUser.get(row.userId) ?? [];
       list.push(row.roleName);
@@ -33,13 +60,50 @@ export default async function UsersPage() {
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const buildHref = (nextPage: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const s = params.toString();
+    return s ? `/admin/users?${s}` : "/admin/users";
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-semibold">Users</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Assign roles to users. Admins receive every feature automatically.
       </p>
-      <table className="mt-6 w-full text-sm">
+
+      <form className="mt-6 flex gap-2" action="/admin/users" method="get">
+        <input
+          name="q"
+          defaultValue={q}
+          placeholder="Search by name or email"
+          className="w-72 rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+        />
+        <button
+          type="submit"
+          className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+        >
+          Search
+        </button>
+        {q && (
+          <Link
+            href="/admin/users"
+            className="text-sm text-muted-foreground underline self-center"
+          >
+            Clear
+          </Link>
+        )}
+      </form>
+
+      <p className="mt-4 text-xs text-muted-foreground">
+        {total} user{total === 1 ? "" : "s"} · page {page} of {totalPages}
+      </p>
+
+      <table className="mt-4 w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-muted-foreground">
             <th className="py-2">User</th>
@@ -50,7 +114,7 @@ export default async function UsersPage() {
           </tr>
         </thead>
         <tbody>
-          {allUsers.map((u) => {
+          {rows.map((u) => {
             const userRoleList = rolesByUser.get(u.id) ?? [];
             return (
               <tr key={u.id} className="border-b border-border">
@@ -103,8 +167,34 @@ export default async function UsersPage() {
               </tr>
             );
           })}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                {q ? "No users match that search." : "No users yet."}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm">
+          {page > 1 ? (
+            <Link href={buildHref(page - 1)} className="underline">
+              ← Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+          {page < totalPages ? (
+            <Link href={buildHref(page + 1)} className="underline">
+              Next →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </div>
+      )}
     </div>
   );
 }

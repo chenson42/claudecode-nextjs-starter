@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { eq } from "drizzle-orm";
@@ -15,11 +16,14 @@ import {
   features,
 } from "@/lib/db/schema";
 import { authConfig } from "@/lib/auth/config";
+import { ADMIN_ROLE, FEATURES, MEMBER_ROLE } from "@/lib/permissions";
 
 const INITIAL_ADMIN_EMAILS = (process.env.INITIAL_ADMIN_EMAILS ?? "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
+
+const FEATURE_KEYS = Object.values(FEATURES) as string[];
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
@@ -30,7 +34,16 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     verificationTokensTable: verificationTokens,
   }),
   providers: [
-    ...(authConfig.providers ?? []),
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      // Google verifies email ownership at sign-in, so linking an existing
+      // user record by email is safe with Google alone. If a fork adds a
+      // second OAuth provider (GitHub, Microsoft, etc.) that does NOT verify
+      // email, set this to `false` or the second provider can impersonate a
+      // Google user by claiming their email.
+      allowDangerousEmailAccountLinking: true,
+    }),
     Credentials({
       name: "Email + Password",
       credentials: {
@@ -62,17 +75,24 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
     async signIn({ user }) {
-      if (!user.id) return true;
+      // Block sign-in if the user row is missing or inactive. Returning `true`
+      // on null would let a deleted user with a still-valid session re-create
+      // themselves through the adapter — a privilege bypass.
+      if (!user.id) return true; // brand-new OAuth user; adapter will create
       const dbUser = await db.query.users.findFirst({
         where: eq(users.id, user.id),
         columns: { isActive: true },
       });
-      if (!dbUser) return true;
+      if (!dbUser) return false;
       return dbUser.isActive;
     },
     async session({ session, token }) {
       if (token?.sub) {
         session.user.id = token.sub;
+        // NextAuth's default session callback projects email + name + image
+        // from the JWT, but be explicit: a forker who modifies this callback
+        // should see every field they're responsible for setting.
+        if (typeof token.email === "string") session.user.email = token.email;
         session.user.roles = (token.roles as string[]) ?? [];
         session.user.features = (token.features as string[]) ?? [];
         session.user.isActive = (token.isActive as boolean) ?? true;
@@ -84,6 +104,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       return session;
     },
     async jwt({ token, user, trigger, session }) {
+      // `user` is only present on the initial sign-in (Google callback or a
+      // successful Credentials authorize). Subsequent requests carry the JWT
+      // cookie only, so this block runs exactly once per session.
       if (user?.id) {
         token.sub = user.id;
         token.twoFactorVerified = false;
@@ -93,20 +116,39 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           .where(eq(users.id, user.id));
       }
 
+      // Server-action-triggered updates (e.g. 2FA verified, role assigned)
+      // call `unstable_update`; we merge the partial session payload back into
+      // the token here so subsequent requests see the new state.
       if (trigger === "update" && session?.user) {
         if (typeof session.user.twoFactorVerified === "boolean") {
           token.twoFactorVerified = session.user.twoFactorVerified;
         }
+        if (Array.isArray(session.user.roles)) {
+          token.roles = session.user.roles;
+        }
+        if (Array.isArray(session.user.features)) {
+          token.features = session.user.features;
+        }
       }
 
-      if (token.sub && (!token.roles || trigger === "update")) {
+      // Refresh roles + features when the token is fresh, or when the caller
+      // explicitly asks via `unstable_update({})`. The JWT is sticky between
+      // these refreshes — role changes don't take effect for the affected
+      // user until something fires `unstable_update` (admin actions do).
+      const needsRefresh = !token.roles || trigger === "update";
+      if (token.sub && needsRefresh) {
         const userId = token.sub;
         const dbUser = await db.query.users.findFirst({
           where: eq(users.id, userId),
           columns: { isActive: true, twoFactorRequired: true, email: true },
         });
-        token.isActive = dbUser?.isActive ?? true;
-        token.twoFactorRequired = dbUser?.twoFactorRequired ?? true;
+        if (!dbUser) {
+          // Row vanished mid-session. Drop the JWT.
+          return {};
+        }
+        token.isActive = dbUser.isActive;
+        token.twoFactorRequired = dbUser.twoFactorRequired;
+        if (dbUser.email) token.email = dbUser.email;
 
         const roleRows = await db
           .select({ name: roles.name })
@@ -117,9 +159,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         const roleNames = roleRows.map((r) => r.name);
         token.roles = roleNames;
 
-        if (roleNames.includes("admin")) {
-          const all = await db.select({ key: features.key }).from(features);
-          token.features = all.map((f) => f.key);
+        if (roleNames.includes(ADMIN_ROLE)) {
+          // Admins receive every key in the static FEATURE_CATALOG, not every
+          // row in the `features` table. The DB is *not* the source of truth
+          // for the admin grant — the code is. This protects against stale
+          // rows leaking in and missing rows leaving admins under-privileged.
+          token.features = FEATURE_KEYS;
         } else if (roleNames.length > 0) {
           const featRows = await db
             .selectDistinct({ key: features.key })
@@ -137,13 +182,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     },
   },
   events: {
+    // The DrizzleAdapter creates the `users` row on first OAuth sign-in but
+    // leaves user_roles empty. Bind every brand-new OAuth user to a starter
+    // role here. Credentials users skip this hook (no adapter call), which is
+    // why the seed script wires the local admin to its role directly.
     async createUser({ user }) {
       if (!user.id || !user.email) return;
       const desiredRole = INITIAL_ADMIN_EMAILS.includes(
         user.email.toLowerCase(),
       )
-        ? "admin"
-        : "member";
+        ? ADMIN_ROLE
+        : MEMBER_ROLE;
       const role = await db.query.roles.findFirst({
         where: eq(roles.name, desiredRole),
       });

@@ -5,10 +5,11 @@ import { eq, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { featureFlags, auditEvents } from "@/lib/db/schema";
+import { ADMIN_ROLE } from "@/lib/permissions";
 
 export async function toggleFlagAction(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.roles?.includes("admin")) throw new Error("Forbidden");
+  if (!session?.user?.roles?.includes(ADMIN_ROLE)) throw new Error("Forbidden");
 
   const key = String(formData.get("key"));
   const current = await db.query.featureFlags.findFirst({

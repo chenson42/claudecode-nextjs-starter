@@ -1,16 +1,22 @@
-import type { NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 
+/**
+ * Edge-safe NextAuth configuration.
+ *
+ * Critical: this module is imported by `src/proxy.ts`, which runs on the Edge
+ * runtime. It MUST NOT import anything node-only (bcryptjs, the DrizzleAdapter,
+ * the Neon client, etc.). The proxy only needs to decode the JWT cookie and
+ * read claims (`roles`, `features`, `twoFactorVerified`) — no DB, no
+ * provider-side cryptography.
+ *
+ * `src/auth.ts` extends this config with the real providers + adapter for the
+ * Node-side request handlers and server actions. They share the same
+ * `AUTH_SECRET`, so a JWT signed by the full config decodes cleanly here.
+ */
 export const authConfig: NextAuthConfig = {
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      allowDangerousEmailAccountLinking: true,
-    }),
-  ],
+  providers: [],
   pages: { signIn: "/signin" },
   callbacks: {
     authorized({ auth }) {
@@ -18,3 +24,5 @@ export const authConfig: NextAuthConfig = {
     },
   },
 };
+
+export const { auth: edgeAuth } = NextAuth(authConfig);

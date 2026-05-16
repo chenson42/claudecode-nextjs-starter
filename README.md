@@ -29,7 +29,9 @@ npm run db:seed
 npm run dev
 ```
 
-Sign in with Google. The first email matching `INITIAL_ADMIN_EMAILS` gets the `admin` role automatically. Enroll in 2FA at `/admin/2fa`, then everything in `/admin` is yours.
+Sign in with Google. Any email listed in `INITIAL_ADMIN_EMAILS` (comma-separated list) receives the `admin` role automatically on first sign-in. Enroll in 2FA at `/admin/2fa`, then everything in `/admin` is yours.
+
+For local testing without setting up Google OAuth, set `SEED_ADMIN_EMAIL` + `SEED_ADMIN_PASSWORD` in `.env.local` and run `npm run db:seed` — that provisions a credentials-login admin with 2FA disabled.
 
 ## Environment variables
 

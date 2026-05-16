@@ -1,7 +1,14 @@
+/**
+ * Reserved name of the role that bypasses per-feature checks and is treated
+ * as "has every feature in the catalog." A single source of truth — never
+ * inline the literal `"admin"` in code or middleware.
+ */
+export const ADMIN_ROLE = "admin" as const;
+export const MEMBER_ROLE = "member" as const;
+
 export const FEATURES = {
   ADMIN_DASHBOARD: "admin.dashboard",
   ADMIN_USERS: "admin.users",
-  ADMIN_ROLES: "admin.roles",
   ADMIN_FLAGS: "admin.flags",
   ADMIN_RELEASE_NOTES: "admin.release_notes",
 } as const;
@@ -24,12 +31,6 @@ export const FEATURE_CATALOG: Array<{
     key: FEATURES.ADMIN_USERS,
     name: "Manage users",
     description: "View users and assign roles.",
-    category: "admin",
-  },
-  {
-    key: FEATURES.ADMIN_ROLES,
-    name: "Manage roles",
-    description: "Create roles and assign features to them.",
     category: "admin",
   },
   {

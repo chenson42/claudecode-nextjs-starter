@@ -46,6 +46,26 @@ npm run typecheck
 
 **Do not proceed if typecheck fails.**
 
+## Step 3b: Audit-Coverage Tripwire
+
+```bash
+npm run check:audit
+```
+
+`scripts/check-audit-coverage.mjs` walks every `actions.ts` under `src/app/`, grep-lints for `db.insert/update/delete` without a corresponding `auditEvents` row, and fails if a security-sensitive mutation is missing its audit write. Add the `auditEvents` insert, or — if the mutation is genuinely not security-relevant — annotate the line above with `// audit-exempt: <reason>`.
+
+**Do not proceed if the audit-coverage check fails.**
+
+## Step 3c: Unit Tests
+
+```bash
+npm test
+```
+
+Vitest runs every `*.test.ts` under `src/`. If a test fails, fix it before pushing — a broken test in the starter teaches every fork to ignore tests.
+
+**Do not proceed if any test fails.**
+
 ## Step 4: Production Build
 
 ```bash

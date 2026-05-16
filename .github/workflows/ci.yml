@@ -38,4 +38,7 @@ jobs:
           AUTH_TOTP_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
       - name: Audit-log invariant check
-        run: node scripts/check-audit-coverage.mjs
+        run: npm run check:audit
+
+      - name: Unit tests
+        run: npm test

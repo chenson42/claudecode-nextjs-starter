@@ -23,7 +23,9 @@ export async function sendEmail(input: SendEmailInput) {
       throw new Error("RESEND_API_KEY is not set in production");
     }
     console.warn("[email] RESEND_API_KEY missing — logging instead of sending");
-    console.warn(`[email] to=${input.to} subject=${input.subject}`);
+    console.warn(
+      `[email] to=${input.to} subject=${input.subject} htmlLen=${input.html.length} textLen=${input.text?.length ?? 0}`,
+    );
     return { id: "dev-noop" };
   }
   const res = await client.emails.send({

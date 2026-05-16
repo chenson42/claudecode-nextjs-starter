@@ -3,7 +3,12 @@ import { neon } from "@neondatabase/serverless";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import * as schema from "../src/lib/db/schema";
-import { FEATURE_CATALOG, FEATURES } from "../src/lib/permissions";
+import {
+  ADMIN_ROLE,
+  FEATURE_CATALOG,
+  FEATURES,
+  MEMBER_ROLE,
+} from "../src/lib/permissions";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("Set DATABASE_URL in .env.local before running the seed.");
@@ -28,8 +33,8 @@ const db = drizzle(sql, { schema });
 
 async function seedRoles() {
   const defs = [
-    { name: "admin", displayName: "Admin", isSystem: true, sortOrder: 0 },
-    { name: "member", displayName: "Member", isSystem: true, sortOrder: 100 },
+    { name: ADMIN_ROLE, displayName: "Admin", isSystem: true, sortOrder: 0 },
+    { name: MEMBER_ROLE, displayName: "Member", isSystem: true, sortOrder: 100 },
   ];
   for (const r of defs) {
     await db.insert(schema.roles).values(r).onConflictDoNothing();
@@ -60,7 +65,7 @@ async function seedFlags() {
 
 async function bindAdminFeatures() {
   const admin = await db.query.roles.findFirst({
-    where: eq(schema.roles.name, "admin"),
+    where: eq(schema.roles.name, ADMIN_ROLE),
   });
   if (!admin) return;
   for (const key of Object.values(FEATURES)) {
@@ -94,12 +99,14 @@ async function seedLocalAdmin() {
 
   let userId: string;
   if (existing) {
+    // Rotate the password and reactivate, but do NOT silently flip
+    // `twoFactorRequired` back to false — a fork that enabled 2FA on this
+    // user wants to keep it on across reseeds.
     await db
       .update(schema.users)
       .set({
         password: hash,
         isActive: true,
-        twoFactorRequired: false,
         name: existing.name ?? "Local Admin",
       })
       .where(eq(schema.users.id, existing.id));
@@ -113,6 +120,8 @@ async function seedLocalAdmin() {
         name: "Local Admin",
         password: hash,
         emailVerified: new Date(),
+        // Disabled on initial seed so /admin loads in one click for testing.
+        // Flip to `true` (or omit) once you've enrolled in 2FA.
         twoFactorRequired: false,
       })
       .returning({ id: schema.users.id });
@@ -121,7 +130,7 @@ async function seedLocalAdmin() {
   }
 
   const adminRole = await db.query.roles.findFirst({
-    where: eq(schema.roles.name, "admin"),
+    where: eq(schema.roles.name, ADMIN_ROLE),
   });
   if (adminRole) {
     await db

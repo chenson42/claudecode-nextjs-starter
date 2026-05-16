@@ -1,5 +1,14 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { authenticator } from "otplib";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "node:crypto";
+import {
+  generateSecret as otpGenerateSecret,
+  generateURI,
+  verifySync,
+} from "otplib";
 
 const ALGO = "aes-256-gcm";
 
@@ -34,13 +43,58 @@ export function decryptSecret(ciphertext: string): string {
 }
 
 export function generateSecret(): string {
-  return authenticator.generateSecret();
+  return otpGenerateSecret();
 }
 
-export function otpauthUrl(email: string, secret: string, issuer = "Claude Code Starter"): string {
-  return authenticator.keyuri(email, issuer, secret);
+export function otpauthUrl(
+  email: string,
+  secret: string,
+  issuer = "Claude Code Starter",
+): string {
+  return generateURI({ issuer, label: email, secret });
 }
 
 export function verifyToken(token: string, secret: string): boolean {
-  return authenticator.verify({ token, secret });
+  // RFC 6238 recommends a small backward tolerance to handle clock drift
+  // between the server and the user's authenticator. `[30, 0]` (seconds)
+  // accepts the previous 30-second step but no future steps.
+  return verifySync({ secret, token, epochTolerance: [30, 0] }).valid;
+}
+
+// -----------------------------------------------------------------------------
+// Recovery codes
+//
+// Format: 10 codes, each `XXXX-XXXX` (8 alphanumeric chars + a dash for
+// readability). Hashed with SHA-256 (codes are high-entropy and single-use,
+// so a slow hash like bcrypt would buy nothing). The plaintext set is only
+// shown once via the FRESH_RECOVERY_CODES_COOKIE handoff.
+// -----------------------------------------------------------------------------
+
+const RECOVERY_CODE_COUNT = 10;
+const RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+
+export const FRESH_RECOVERY_CODES_COOKIE = "claudecode_fresh_recovery_codes";
+
+export function generateRecoveryCodes(): string[] {
+  const out: string[] = [];
+  while (out.length < RECOVERY_CODE_COUNT) {
+    const bytes = randomBytes(8);
+    let s = "";
+    for (let i = 0; i < 8; i++) {
+      s += RECOVERY_CODE_ALPHABET[bytes[i] % RECOVERY_CODE_ALPHABET.length];
+    }
+    out.push(`${s.slice(0, 4)}-${s.slice(4)}`);
+  }
+  return out;
+}
+
+export function hashRecoveryCode(code: string): string {
+  return createHash("sha256").update(code.trim().toUpperCase()).digest("hex");
+}
+
+export function normalizeRecoveryCode(input: string): string | null {
+  const trimmed = input.trim().toUpperCase().replace(/\s+/g, "");
+  if (!/^[A-Z0-9-]{8,10}$/.test(trimmed)) return null;
+  if (trimmed.length === 8) return `${trimmed.slice(0, 4)}-${trimmed.slice(4)}`;
+  return trimmed;
 }

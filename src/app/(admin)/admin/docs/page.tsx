@@ -3,6 +3,12 @@ import path from "node:path";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+/**
+ * Note for forkers: every `.md` file under `docs/release-notes/` is readable
+ * by anyone who holds the `admin.release_notes` feature. Don't drop
+ * unredacted postmortems, customer lists, or anything else sensitive in this
+ * directory — use a separate route with stricter gating if you need that.
+ */
 async function listReleaseFiles(): Promise<string[]> {
   const dir = path.join(process.cwd(), "docs", "release-notes");
   try {
@@ -16,6 +22,8 @@ async function listReleaseFiles(): Promise<string[]> {
 }
 
 async function readReleaseFile(filename: string): Promise<string> {
+  // `filename` is verified against the listed-files allowlist in the page
+  // body before this is called, so path-traversal payloads can't escape.
   const full = path.join(process.cwd(), "docs", "release-notes", filename);
   return fs.readFile(full, "utf8");
 }

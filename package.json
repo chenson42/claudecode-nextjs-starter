@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
