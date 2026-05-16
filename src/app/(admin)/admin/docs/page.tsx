@@ -1,0 +1,68 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+async function listReleaseFiles(): Promise<string[]> {
+  const dir = path.join(process.cwd(), "docs", "release-notes");
+  try {
+    const entries = await fs.readdir(dir);
+    return entries
+      .filter((f) => f.endsWith(".md"))
+      .sort((a, b) => b.localeCompare(a));
+  } catch {
+    return [];
+  }
+}
+
+async function readReleaseFile(filename: string): Promise<string> {
+  const full = path.join(process.cwd(), "docs", "release-notes", filename);
+  return fs.readFile(full, "utf8");
+}
+
+export default async function DocsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ file?: string }>;
+}) {
+  const sp = await searchParams;
+  const files = await listReleaseFiles();
+  const current = sp.file && files.includes(sp.file) ? sp.file : files[0];
+  const body = current ? await readReleaseFile(current) : "";
+
+  return (
+    <div className="grid grid-cols-[200px_1fr] gap-8">
+      <aside>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Versions
+        </h2>
+        <ul className="mt-3 space-y-1">
+          {files.map((f) => (
+            <li key={f}>
+              <a
+                href={`?file=${encodeURIComponent(f)}`}
+                className={
+                  f === current
+                    ? "text-sm font-medium"
+                    : "text-sm text-muted-foreground hover:text-foreground"
+                }
+              >
+                {f.replace(/\.md$/, "")}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </aside>
+      <article className="prose prose-sm max-w-none dark:prose-invert">
+        {body ? (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No release notes yet. Run <code>/release-notes</code> via Claude
+            Code to generate the first entry.
+          </p>
+        )}
+      </article>
+    </div>
+  );
+}
