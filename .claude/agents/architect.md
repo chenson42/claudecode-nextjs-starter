@@ -33,14 +33,13 @@ src/
 │   ├── two-factor.ts  — TOTP encrypt/decrypt + verify.
 │   └── utils.ts       — Shared helpers (cn, formatting).
 ├── auth.ts            — NextAuth entry that the rest of the app imports.
-├── middleware.ts      — Route gate (admin + 2FA enforcement) — see src/proxy.ts.
-├── proxy.ts           — Logic the middleware delegates to.
+├── proxy.ts           — Next 16 route gate (admin + 2FA enforcement).
 └── types/             — Ambient TypeScript declarations.
 ```
 
 ### Route Group Rules
 - `(auth)` — public; redirect to `/` (or last-visited) if already signed in.
-- `(admin)/admin` — requires `admin.dashboard` feature. The middleware blocks unauthenticated access; page-level checks enforce per-feature access.
+- `(admin)/admin` — requires `admin.dashboard` feature. The proxy blocks unauthenticated access; page-level checks enforce per-feature access.
 - `access-pending` — for authenticated users with no roles. Don't dump them on `/admin`.
 - `api/admin/*` — every handler checks session + the relevant `FEATURES.*` key.
 

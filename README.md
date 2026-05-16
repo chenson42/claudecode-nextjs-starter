@@ -60,7 +60,7 @@ Never commit `.env.local`. `.gitignore` enforces this.
 - `src/lib/flags.ts` — `isFlagEnabled(key)`
 - `src/lib/two-factor.ts` — TOTP encrypt/decrypt + verify
 - `src/lib/email.ts` — Resend helper
-- `src/proxy.ts` + `src/middleware.ts` — auth + 2FA edge gate
+- `src/proxy.ts` — auth + 2FA route gate (Next 16 `proxy.ts` convention; replaces the deprecated `middleware.ts`)
 - `scripts/seed.ts` — seeds roles, features, and a demo flag
 - `.claude/` — 9 agents, 5 skills, settings
 - `docs/` — decisions log, work-log template, review cadence log, versioned release notes

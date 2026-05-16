@@ -68,7 +68,7 @@ Optional:
 
 **TypeScript errors:** `npm run typecheck` produces the same output as the build's type pass without the rest of the work. Use it to iterate.
 
-**Edge runtime errors:** `src/middleware.ts` runs on the Edge runtime, which restricts the modules it can import. Don't import `@/lib/db` from middleware — it pulls in node-only crypto. The middleware should delegate to `src/proxy.ts` and stick to checking JWT claims.
+**Edge runtime errors:** `src/proxy.ts` runs on the Edge runtime (Next 16's `proxy.ts` convention replaces the deprecated `middleware.ts`). It restricts the modules it can import — don't import `@/lib/db` from `proxy.ts`; it pulls in node-only crypto. Stick to checking JWT claims and redirecting.
 
 **OAuth callback mismatch:** the Google OAuth client must list `${AUTH_URL}/api/auth/callback/google` as an authorized redirect URI.
 

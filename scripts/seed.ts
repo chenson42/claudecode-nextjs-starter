@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import * as schema from "../src/lib/db/schema";
 import { FEATURE_CATALOG, FEATURES } from "../src/lib/permissions";
 
@@ -71,11 +72,72 @@ async function bindAdminFeatures() {
   console.log("bound all features to admin");
 }
 
+async function seedLocalAdmin() {
+  const email = (process.env.SEED_ADMIN_EMAIL ?? "").toLowerCase().trim();
+  const password = process.env.SEED_ADMIN_PASSWORD ?? "";
+
+  if (!email || !password) {
+    console.warn(
+      "[seed] SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD not set — skipping local admin seed. " +
+        "Set both in .env.local to provision a credentials-login admin for testing.",
+    );
+    return;
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+
+  // Upsert the user. Password updates on each run so you can rotate it via
+  // .env.local without manual DB surgery.
+  const existing = await db.query.users.findFirst({
+    where: eq(schema.users.email, email),
+  });
+
+  let userId: string;
+  if (existing) {
+    await db
+      .update(schema.users)
+      .set({
+        password: hash,
+        isActive: true,
+        twoFactorRequired: false,
+        name: existing.name ?? "Local Admin",
+      })
+      .where(eq(schema.users.id, existing.id));
+    userId = existing.id;
+    console.log(`[seed] updated local admin: ${email}`);
+  } else {
+    const [created] = await db
+      .insert(schema.users)
+      .values({
+        email,
+        name: "Local Admin",
+        password: hash,
+        emailVerified: new Date(),
+        twoFactorRequired: false,
+      })
+      .returning({ id: schema.users.id });
+    userId = created.id;
+    console.log(`[seed] created local admin: ${email}`);
+  }
+
+  const adminRole = await db.query.roles.findFirst({
+    where: eq(schema.roles.name, "admin"),
+  });
+  if (adminRole) {
+    await db
+      .insert(schema.userRoles)
+      .values({ userId, roleId: adminRole.id })
+      .onConflictDoNothing();
+    console.log("[seed] bound local admin to admin role");
+  }
+}
+
 async function main() {
   await seedRoles();
   await seedFeatures();
   await seedFlags();
   await bindAdminFeatures();
+  await seedLocalAdmin();
   console.log("done.");
 }
 

@@ -21,7 +21,7 @@ Out of the box, a fork ships with:
 - **Admin shell** — `/admin` with subpages for users, roles, flags, docs, and 2FA management. Gated by the `admin.dashboard` feature.
 - **Audit log** — Append-only `audit_events` table. Security-sensitive mutations write rows here.
 - **Release notes viewer** — Admin docs page renders versioned release notes from `docs/release-notes/vX.Y.md`.
-- **Route protection** — `src/middleware.ts` and `src/proxy.ts` enforce the auth + 2FA gate at the edge.
+- **Route protection** — `src/proxy.ts` enforces the auth + 2FA gate at the edge (Next 16's `proxy.ts` convention, which replaces the deprecated `middleware.ts`).
 - **Seed script** — `scripts/seed.ts` creates admin and member roles, seeds every feature in `FEATURE_CATALOG`, and registers a demo feature flag.
 
 ## How Claude Should Behave in This Repo
@@ -69,8 +69,7 @@ src/
 │   ├── flags.ts             — isFlagEnabled()
 │   └── two-factor.ts        — TOTP encrypt/decrypt + verify
 ├── auth.ts                  — NextAuth entry (re-exported across the app)
-├── middleware.ts            — Edge route gate (admin + 2FA)
-├── proxy.ts                 — Logic the middleware delegates to
+├── proxy.ts                 — Next 16 route gate (admin + 2FA enforcement)
 └── types/                   — Ambient type declarations
 scripts/
 └── seed.ts                  — Roles + features + demo flag seed
@@ -315,7 +314,7 @@ Mark with `'use server'` at the top of the file or function. They run on the ser
 
 ### The Middleware Cannot Import `@/lib/db`
 
-`src/middleware.ts` runs on the Edge runtime. It cannot import node-only modules. Keep DB access in route handlers and server actions; let the middleware check JWT claims only.
+`src/proxy.ts` runs on the Edge runtime. It cannot import node-only modules. Keep DB access in route handlers and server actions; let the proxy check JWT claims only.
 
 ### Schema Is the Source of Truth
 
