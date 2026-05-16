@@ -365,6 +365,22 @@ This slide is about the second kind. Four types of auto memory:
 
 ---
 
+## Save-state before you restart
+
+The trick I just used in this session.
+
+When you need to **restart Claude** — context filling up, debug session went sideways, you're rebooting, you're switching machines — tell Claude:
+
+> "Remember what we're doing. I'm going to restart Claude."
+
+Claude writes the active bug, the half-finished work, the file paths, the next step, and any in-flight uncommitted changes to a project memory file.
+
+The **next session reads `MEMORY.md` on start** and picks up exactly where the previous one left off — same diagnosis, same plan, no "wait, what were we doing?"
+
+Pair this with frequent commits and you can restart Claude without losing your place.
+
+---
+
 # Part 4 — How I actually work with Claude
 
 The pragmatic stuff.

@@ -60,8 +60,11 @@ export default async function SignInPage({
         className="space-y-3"
       >
         <div>
-          <label className="block text-sm font-medium">Email</label>
+          <label htmlFor="signin-email" className="block text-sm font-medium">
+            Email
+          </label>
           <input
+            id="signin-email"
             name="email"
             type="email"
             required
@@ -71,8 +74,11 @@ export default async function SignInPage({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Password</label>
+          <label htmlFor="signin-password" className="block text-sm font-medium">
+            Password
+          </label>
           <input
+            id="signin-password"
             name="password"
             type="password"
             required

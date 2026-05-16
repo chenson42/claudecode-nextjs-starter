@@ -121,23 +121,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       if (!dbUser) return false;
       return dbUser.isActive;
     },
-    async session({ session, token }) {
-      if (token?.sub) {
-        session.user.id = token.sub;
-        // NextAuth's default session callback projects email + name + image
-        // from the JWT, but be explicit: a forker who modifies this callback
-        // should see every field they're responsible for setting.
-        if (typeof token.email === "string") session.user.email = token.email;
-        session.user.roles = (token.roles as string[]) ?? [];
-        session.user.features = (token.features as string[]) ?? [];
-        session.user.isActive = (token.isActive as boolean) ?? true;
-        session.user.twoFactorRequired =
-          (token.twoFactorRequired as boolean) ?? true;
-        session.user.twoFactorVerified =
-          (token.twoFactorVerified as boolean) ?? false;
-      }
-      return session;
-    },
+    // The `session` callback lives in the shared authConfig so the edge
+    // runtime (proxy.ts) sees the same projection.
     async jwt({ token, user, trigger, session }) {
       // `user` is only present on the initial sign-in (Google callback or a
       // successful Credentials authorize). Subsequent requests carry the JWT

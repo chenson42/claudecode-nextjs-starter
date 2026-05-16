@@ -37,3 +37,4 @@ If three retrospectives in a row produce nothing, the cadence itself is suspect 
 ## Entries
 
 <!-- newest entries go here, above the older ones -->
+2026-05-16 | test-coverage | first run; 1 of 9 critical modules covered (permissions.ts 100%); two-factor.ts, flags.ts, proxy.ts all at 0%; 7-item punch-list; see 2026-05-16-test-coverage.md

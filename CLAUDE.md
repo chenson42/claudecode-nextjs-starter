@@ -48,6 +48,7 @@ If you've forked this starter and run Claude Code with the default permission pr
 - **otplib** + **qrcode** for TOTP 2FA
 - **Resend** for transactional email (`src/lib/email.ts`)
 - **react-markdown** + **remark-gfm** for the admin docs viewer
+- **Vitest** for unit tests (`*.test.ts` next to source); **Playwright** + chromium for e2e tests under `e2e/`
 - **Vercel** target deployment (the starter is platform-agnostic but ships Vercel-ready)
 
 ## Project Layout
@@ -272,6 +273,9 @@ npm run build        # Production build
 npm run start        # Run the production build
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
+npm run test         # Vitest unit tests (run once)
+npm run test:watch   # Vitest in watch mode
+npm run test:e2e     # Playwright end-to-end tests (needs the dev server running)
 npm run db:push      # Sync Drizzle schema to the live database (lossy — dev only)
 npm run db:generate  # Generate a versioned SQL migration in drizzle/ (use this once you have data you care about)
 npm run db:seed      # Seed roles, features, and the demo flag

@@ -11,19 +11,21 @@ You do not write feature code. You hand failing tests back to the implementer. Y
 
 ## A Note on the Starter's Test Stack
 
-The starter ships without a test runner configured. This is deliberate: not every fork needs the same test stack. When a fork adds tests, the defaults below are the recommended starting point. Everything in this document assumes the fork has wired one of them up.
+The starter ships **both** test runners pre-configured. You don't need to add anything to start writing tests — just write them.
 
-### Recommended defaults
+### What ships in the starter
 
-- **Vitest** for unit tests on pure TypeScript modules — `src/lib/permissions.ts`, `src/lib/two-factor.ts`, `src/lib/flags.ts`, any helper in `src/lib/`.
-  - Add: `vitest`, `@vitest/coverage-v8`, `vitest.config.ts`.
-  - Run: `npx vitest run` (or add `"test": "vitest run"` to `package.json`).
-- **Playwright** for end-to-end tests against a running Next.js dev server.
-  - Add: `@playwright/test`, `playwright.config.ts`, an `e2e/` directory.
-  - Run: `npx playwright test`.
-- **`npm run typecheck`** is available today and runs `tsc --noEmit`. Treat a failed typecheck as a failed test.
+- **Vitest** for unit tests on pure TypeScript modules. Config in `vitest.config.ts`.
+  - Run: `npm run test` (single run) or `npm run test:watch`.
+  - Coverage: `npm run test -- --coverage` (uses `@vitest/coverage-v8`).
+  - Convention: spec files live next to their source (`src/lib/foo.ts` → `src/lib/foo.test.ts`).
+- **Playwright** (chromium-only) for end-to-end tests against a running dev server. Config in `playwright.config.ts`.
+  - Run: `npm run test:e2e` (assumes `npm run dev` is up — Playwright does NOT spawn the dev server).
+  - Specs live under `e2e/` at the repo root.
+  - Loads `.env.local` automatically so the spec can read `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` for the seeded-admin login flow.
+- **`npm run typecheck`** runs `tsc --noEmit`. Treat a failed typecheck as a failed test.
 
-If a fork picks a different stack (Jest, Cypress, etc.) the strategy below still applies — only the commands change.
+If a fork prefers a different stack (Jest, Cypress, etc.) the strategy below still applies — only the commands change.
 
 ## What to Test
 

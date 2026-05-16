@@ -1,4 +1,5 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
+import { projectJWTOntoSession } from "./session-projection";
 
 /**
  * Edge-safe NextAuth configuration.
@@ -21,6 +22,14 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth }) {
       return !!auth?.user;
+    },
+    // The session callback MUST live in the shared config (not only in
+    // src/auth.ts) so the edge runtime sees `roles`, `features`,
+    // `twoFactorRequired`, and `twoFactorVerified`. The actual projection is
+    // in `session-projection.ts` so it can be unit tested without dragging
+    // in the NextAuth runtime.
+    async session({ session, token }) {
+      return projectJWTOntoSession(session, token);
     },
   },
 };

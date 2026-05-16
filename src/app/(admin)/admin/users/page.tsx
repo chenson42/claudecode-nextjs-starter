@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { users, roles, userRoles } from "@/lib/db/schema";
-import { desc, eq, ilike, or, sql } from "drizzle-orm";
+import { desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { assignRoleAction, removeRoleAction } from "./actions";
 
@@ -33,6 +33,7 @@ export default async function UsersPage({
       email: users.email,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
+      twoFactorRequired: users.twoFactorRequired,
     })
     .from(users)
     .where(whereExpr)
@@ -52,7 +53,7 @@ export default async function UsersPage({
       .select({ userId: userRoles.userId, roleName: roles.name })
       .from(userRoles)
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .where(sql`${userRoles.userId} = ANY(${userIds})`);
+      .where(inArray(userRoles.userId, userIds));
     for (const row of ur) {
       const list = rolesByUser.get(row.userId) ?? [];
       list.push(row.roleName);
@@ -119,8 +120,15 @@ export default async function UsersPage({
             return (
               <tr key={u.id} className="border-b border-border">
                 <td className="py-3">
-                  <div className="font-medium">{u.name ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">{u.email}</div>
+                  <Link href={`/admin/users/${u.id}`} className="hover:underline">
+                    <div className="font-medium">{u.name ?? "—"}</div>
+                    <div className="text-xs text-muted-foreground">{u.email}</div>
+                  </Link>
+                  {!u.twoFactorRequired && (
+                    <span className="mt-1 inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                      2FA exempt
+                    </span>
+                  )}
                 </td>
                 <td>
                   <div className="flex flex-wrap gap-1">

@@ -6,6 +6,7 @@ import { auth, unstable_update } from "@/auth";
 import { db } from "@/lib/db";
 import { roles, userRoles, auditEvents } from "@/lib/db/schema";
 import { ADMIN_ROLE } from "@/lib/permissions";
+import { AUDIT_ACTIONS } from "@/lib/audit";
 
 async function requireAdmin() {
   const session = await auth();
@@ -39,7 +40,7 @@ export async function assignRoleAction(formData: FormData) {
   await db.insert(auditEvents).values({
     actorUserId: session.user.id,
     actorEmail: session.user.email,
-    action: "user.role.assigned",
+    action: AUDIT_ACTIONS.USER_ROLE_ASSIGNED,
     resourceType: "user",
     resourceId: userId,
     metadata: { roleId },
@@ -66,7 +67,7 @@ export async function removeRoleAction(formData: FormData) {
   await db.insert(auditEvents).values({
     actorUserId: session.user.id,
     actorEmail: session.user.email,
-    action: "user.role.removed",
+    action: AUDIT_ACTIONS.USER_ROLE_REMOVED,
     resourceType: "user",
     resourceId: userId,
     metadata: { roleName },

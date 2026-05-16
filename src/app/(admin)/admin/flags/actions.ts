@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { featureFlags, auditEvents } from "@/lib/db/schema";
 import { ADMIN_ROLE } from "@/lib/permissions";
+import { AUDIT_ACTIONS } from "@/lib/audit";
 
 export async function toggleFlagAction(formData: FormData) {
   const session = await auth();
@@ -26,7 +27,7 @@ export async function toggleFlagAction(formData: FormData) {
   await db.insert(auditEvents).values({
     actorUserId: session.user.id,
     actorEmail: session.user.email,
-    action: "feature_flag.toggled",
+    action: AUDIT_ACTIONS.FEATURE_FLAG_TOGGLED,
     resourceType: "feature_flag",
     resourceId: key,
     metadata: { from: current.enabled, to: next },

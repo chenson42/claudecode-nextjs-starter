@@ -19,6 +19,7 @@ import {
   hashRecoveryCode,
   verifyToken,
 } from "@/lib/two-factor";
+import { AUDIT_ACTIONS } from "@/lib/audit";
 
 const FRESH_COOKIE_TTL_SECONDS = 300; // 5 minutes — enough to copy/paste
 
@@ -98,7 +99,7 @@ export async function confirmEnrollmentAction(formData: FormData) {
   await db.insert(auditEvents).values({
     actorUserId: session.user.id,
     actorEmail: session.user.email,
-    action: "totp.enrolled",
+    action: AUDIT_ACTIONS.TOTP_ENROLLED,
     resourceType: "user",
     resourceId: session.user.id,
   });
@@ -125,7 +126,7 @@ export async function regenerateRecoveryCodesAction() {
   await db.insert(auditEvents).values({
     actorUserId: session.user.id,
     actorEmail: session.user.email,
-    action: "totp.recovery_codes.regenerated",
+    action: AUDIT_ACTIONS.TOTP_RECOVERY_CODES_REGENERATED,
     resourceType: "user",
     resourceId: session.user.id,
   });
@@ -149,7 +150,7 @@ export async function resetEnrollmentAction() {
   await db.insert(auditEvents).values({
     actorUserId: session.user.id,
     actorEmail: session.user.email,
-    action: "totp.reset",
+    action: AUDIT_ACTIONS.TOTP_RESET,
     resourceType: "user",
     resourceId: session.user.id,
   });

@@ -24,3 +24,8 @@ next-env.d.ts
 # slides.pdf IS committed so viewers can grab it without a Marp install
 deck/slides.pptx
 deck/slides.html
+
+# Test output
+coverage/
+test-results/
+playwright-report/
