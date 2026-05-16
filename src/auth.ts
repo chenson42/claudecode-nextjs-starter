@@ -25,6 +25,41 @@ const INITIAL_ADMIN_EMAILS = (process.env.INITIAL_ADMIN_EMAILS ?? "")
 
 const FEATURE_KEYS = Object.values(FEATURES) as string[];
 
+/**
+ * Bind a freshly-signed-in user to a default role if they have none.
+ *
+ * Two reasons we do this here rather than relying on `events.createUser`:
+ *
+ *   1. `events.createUser` is fire-and-forget — the JWT callback can run
+ *      before its async role insert completes, leaving the user with an
+ *      empty `roles` array on first request.
+ *   2. Credentials users skip the adapter entirely, so `events.createUser`
+ *      never fires for them at all (this is why the seed script binds the
+ *      local admin's role directly).
+ *
+ * Idempotent: returns early if the user already holds at least one role.
+ */
+async function ensureDefaultRole(
+  userId: string,
+  email: string | null,
+): Promise<void> {
+  const existing = await db.query.userRoles.findFirst({
+    where: eq(userRoles.userId, userId),
+  });
+  if (existing) return;
+  const desiredRoleName = email && INITIAL_ADMIN_EMAILS.includes(email.toLowerCase())
+    ? ADMIN_ROLE
+    : MEMBER_ROLE;
+  const role = await db.query.roles.findFirst({
+    where: eq(roles.name, desiredRoleName),
+  });
+  if (!role) return;
+  await db
+    .insert(userRoles)
+    .values({ userId, roleId: role.id })
+    .onConflictDoNothing();
+}
+
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
   adapter: DrizzleAdapter(db, {
@@ -110,6 +145,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       if (user?.id) {
         token.sub = user.id;
         token.twoFactorVerified = false;
+        // Force a roles refresh on first sign-in. NextAuth's `createUser`
+        // event runs fire-and-forget for OAuth users (the JWT callback can
+        // race ahead of it), and Credentials sign-ins never fire it at all,
+        // so we ensure the default role assignment + role load happen here
+        // synchronously below.
+        token.roles = undefined;
+        await ensureDefaultRole(user.id, user.email ?? null);
         await db
           .update(users)
           .set({ lastLoginAt: new Date() })
@@ -131,25 +173,32 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         }
       }
 
-      // Refresh roles + features when the token is fresh, or when the caller
-      // explicitly asks via `unstable_update({})`. The JWT is sticky between
-      // these refreshes — role changes don't take effect for the affected
-      // user until something fires `unstable_update` (admin actions do).
-      const needsRefresh = !token.roles || trigger === "update";
-      if (token.sub && needsRefresh) {
-        const userId = token.sub;
-        const dbUser = await db.query.users.findFirst({
-          where: eq(users.id, userId),
-          columns: { isActive: true, twoFactorRequired: true, email: true },
-        });
-        if (!dbUser) {
-          // Row vanished mid-session. Drop the JWT.
-          return {};
-        }
-        token.isActive = dbUser.isActive;
-        token.twoFactorRequired = dbUser.twoFactorRequired;
-        if (dbUser.email) token.email = dbUser.email;
+      // Stale-JWT defense + role refresh.
+      //
+      // We hit the DB on every authenticated request to verify the user row
+      // still exists and is active. That's one cheap SELECT, and it's the
+      // only thing standing between a deleted/deactivated user and a still-
+      // valid signed cookie. For role + feature changes to apply mid-session,
+      // call `unstable_update({})` from the mutating action; this re-runs
+      // the role lookup below.
+      if (!token.sub) return token;
 
+      const userId = token.sub;
+      const dbUser = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { isActive: true, twoFactorRequired: true, email: true },
+      });
+      if (!dbUser || !dbUser.isActive) {
+        // Row vanished or got deactivated. Returning an empty token signs
+        // the user out on the next request.
+        return {};
+      }
+      token.isActive = dbUser.isActive;
+      token.twoFactorRequired = dbUser.twoFactorRequired;
+      if (dbUser.email) token.email = dbUser.email;
+
+      const needsRoleRefresh = !token.roles || trigger === "update" || !!user;
+      if (needsRoleRefresh) {
         const roleRows = await db
           .select({ name: roles.name })
           .from(userRoles)
@@ -179,28 +228,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         }
       }
       return token;
-    },
-  },
-  events: {
-    // The DrizzleAdapter creates the `users` row on first OAuth sign-in but
-    // leaves user_roles empty. Bind every brand-new OAuth user to a starter
-    // role here. Credentials users skip this hook (no adapter call), which is
-    // why the seed script wires the local admin to its role directly.
-    async createUser({ user }) {
-      if (!user.id || !user.email) return;
-      const desiredRole = INITIAL_ADMIN_EMAILS.includes(
-        user.email.toLowerCase(),
-      )
-        ? ADMIN_ROLE
-        : MEMBER_ROLE;
-      const role = await db.query.roles.findFirst({
-        where: eq(roles.name, desiredRole),
-      });
-      if (!role) return;
-      await db
-        .insert(userRoles)
-        .values({ userId: user.id, roleId: role.id })
-        .onConflictDoNothing();
     },
   },
 });
