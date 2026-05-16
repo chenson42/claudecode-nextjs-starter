@@ -72,7 +72,7 @@ Why these five pieces, and not others.
 
 ## Vercel
 
-**What:** Where the app actually runs once we ship it. Push to GitHub, Vercel builds it, the new version is live.
+**What:** Where the app actually runs once we ship it. Push to GitHub → Vercel **builds** it (pulls the new code, installs dependencies, compiles the site, runs the build step) → ships the new version live in ~1–2 minutes.
 
 **Why I use it:**
 - Zero configuration for Next.js apps — Vercel made Next.js
@@ -114,10 +114,12 @@ Why these five pieces, and not others.
 | --- | --- |
 | Slow setup to "hello world" | Next.js + Vercel |
 | Real database without ops work | Neon |
-| Login that doesn't get hacked | NextAuth + Google |
+| Login flows hardened by a widely used auth library | NextAuth + Google |
 | Email that lands | Resend |
 
 All five have a free tier. You can get a working app to a real URL for **$0/month** until you have real users.
+
+**This isn't the only good stack.** It's optimized for *speed to working software* and *low operational friction*. Plenty of teams happily ship on SvelteKit + Supabase, or Rails + Heroku, or whatever else fits their context. Pick your poison; the workflow patterns in the rest of this deck travel.
 
 ---
 
@@ -143,28 +145,52 @@ It's also where I publish open-source projects and where Vercel reads my code to
 
 ## How a change gets to "live"
 
-1. I make a change locally (Claude usually does the typing)
-2. **Commit** the change — write a one-line description of what changed
-3. **Push** the commit to GitHub
-4. Vercel sees the push, builds the site, ships it
-5. (Sometimes I open a **pull request** first — a request for review before merging)
+**Solo:**
+1. Claude (or I) make the change
+2. **Commit** with a one-line description of what changed
+3. **Push** to GitHub → Vercel builds + ships in ~2 minutes
 
-This cycle takes ~2 minutes for small changes.
+**On a team — same flow, but with a pull request:**
+1. Push the change to a **branch**, not main
+2. Open a **pull request (PR)** — a teammate reviews the diff
+3. Once approved + checks pass, merge to main → Vercel ships
+
+For audience #3 (teammates): PRs are where you see the work. Comments live there.
+
+---
+
+## GitHub — the mental model
+
+Four words you'll see constantly. Here's the metaphor:
+
+- **`main`** — the *current production history*. What's live.
+- **branch** — a *sandbox* that forks off `main`. Mess around freely; nothing on main is affected.
+- **PR (pull request)** — a *request for review*: "please merge my branch into main."
+- **merge** — *accepting* a PR. The branch's changes become part of main → Vercel ships.
+
+```
+main      ───●───────●───────●───────●───   ← production
+                       \             /
+branch                   ●───●───●──┘      ← sandbox + PR
+```
+
+You can have many branches at once. Two teammates work on two features without ever stepping on each other's code.
 
 ---
 
 ## GitHub Desktop
 
-I use **GitHub Desktop**, not the command line. Most non-engineers do.
+I keep **GitHub Desktop** open as a visual diff viewer, even when Claude does the committing.
 
 - Visual list of every file that changed
 - Click a file, see the before/after side by side
-- Type a commit message in a box
-- Click "Commit to main" → "Push origin"
+- Useful for the "read the diff" rule from earlier
+
+**The two patterns coexist:**
+- Routine changes I already reviewed → Claude commits + pushes
+- Anything I want to eyeball file-by-file → I review in Desktop, *then* click Commit + Push myself
 
 Download: **desktop.github.com**
-
-Claude can still use the command line behind the scenes — the two work together fine.
 
 ---
 
@@ -252,9 +278,11 @@ The starter ships with 9 agents in `.claude/agents/`:
 - **analyst** — "what is the user trying to do?"
 - **architect** — "where does this code belong?"
 - **tech-lead** — "what's the design?"
-- **api-developer**, **ux-developer**, **full-stack-developer** — the implementers
-- **database-admin** — schema + migration work
-- **deployment-engineer** — Vercel + envs
+- **api-developer** — server-side & route handlers
+- **ux-developer** — pages, components, accessibility
+- **full-stack-developer** — features that cross both
+- **database-admin** — schema + migrations
+- **deployment-engineer** — Vercel + envs + secrets
 - **qa** — tests + coverage
 
 Each is just a markdown file describing the role and its responsibilities.
@@ -268,11 +296,27 @@ Two ways:
 1. **Automatic** — Claude recognizes "oh, this is an architectural decision" and delegates to the architect agent on its own.
 2. **Explicit** — I say "have the architect review this" and it spawns one.
 
-Subagents run in parallel and don't share context with the main session, which means:
+When Claude fans out *multiple* agents at once (explicitly or because the task has independent parts), they run **in parallel**:
 - Faster (multiple Claudes thinking at once)
 - Cleaner (the main conversation doesn't fill up with research)
 
+A single delegated agent is still just one Claude — "parallel" only kicks in when there's more than one to run.
+
 Open `.claude/agents/architect.md` to see how an agent is defined.
+
+---
+
+## The pipeline — five beats
+
+Every non-trivial feature moves through these five beats. The agents map onto them:
+
+1. **Understand** — what's the user actually trying to do? *(analyst)*
+2. **Design** — where does this code live and what's the shape? *(architect + tech-lead)*
+3. **Implement** — write the code. *(developers)*
+4. **Verify** — does it work and does it not break anything else? *(qa)*
+5. **Compare against intent** — does the shipped thing match what we set out to build? *(analyst again)*
+
+Full gate criteria for each beat live in `CLAUDE.md` — the deck shows the rhythm, the file shows the discipline.
 
 ---
 
@@ -294,9 +338,12 @@ You type `/release-notes` in Claude's input, it follows the recipe in `SKILL.md`
 
 ## Memory
 
-**Things Claude should remember between sessions.**
+There are two kinds of memory in Claude Code:
 
-Lives in `~/.claude/projects/.../memory/`. Has four types:
+- **CLAUDE.md** — memory **you** write. Project rules, conventions, gotchas. Lives in the repo. Covered on slide 19.
+- **Auto memory** — memory **Claude** writes for itself. Things it learned about you or the work, saved to `~/.claude/projects/.../memory/`. Loads automatically next session.
+
+This slide is about the second kind. Four types of auto memory:
 
 | Type | Example |
 | --- | --- |
@@ -305,7 +352,7 @@ Lives in `~/.claude/projects/.../memory/`. Has four types:
 | **project** | "Auth rewrite is for compliance, not tech-debt" |
 | **reference** | "Bugs tracked in Linear project INGEST" |
 
-Claude writes these when it learns something durable. They load automatically next session.
+<small>Auto memory requires Claude Code v2.1.59 or later.</small>
 
 ---
 
@@ -340,7 +387,7 @@ I run Claude with this flag.
 
 It's a calculated bet — Claude is good, I check the diff, and `git` is a safety net.
 
-**Not for everyone.** New users should *not* start here.
+**Plan mode** is the brake (next slide). **Not for everyone** — new users should not start here.
 
 ---
 
@@ -374,6 +421,64 @@ This is **baked into the starter's CLAUDE.md** under "How This User Works." Futu
 - ❌ Asking Claude to keep guessing when it's clearly off-track. Stop, give context, restart.
 - ❌ Long monologues describing the codebase. Just say "read `src/auth.ts`" — it can.
 - ❌ Burying the question at the end of a long message. Put the ask at the top.
+
+---
+
+## Plan mode — the brake
+
+If `--dangerously-skip-permissions` is the accelerator, **plan mode is the brake.**
+
+**Toggle:** press `Shift+Tab` twice in the Claude prompt.
+
+In plan mode:
+- Claude **cannot** edit files, run commands, or call destructive tools
+- It can still read, search, and think
+- It produces a written plan you approve before *anything* runs
+
+**When I reach for it:**
+- Database migrations that will touch real data
+- Refactors that span more than ~5 files
+- Anything I can't easily reverse with `git reset`
+- When I'm not sure Claude has the full picture yet
+
+---
+
+## What does this cost?
+
+| Piece | Free tier | Paid kicks in when |
+| --- | --- | --- |
+| **Vercel** | Hobby plan: free for personal use | You need team features or commercial use |
+| **Neon** | 0.5 GB storage + 191 compute-hours/mo free | You scale past a hobby app |
+| **Resend** | 3,000 emails/month free (verify current) | You send more email than that |
+| **NextAuth** | Free (it's a library) | Never |
+| **GitHub** | Free for public + small private | You need enterprise features |
+| **Claude Code** | See pricing → claude.com/pricing | Heavy daily use |
+
+Realistic: you can run a real, useful app for **$0/month** until it has actual users. Claude Code itself is the meaningful line item — and even there, you only pay for what you use.
+
+---
+
+## When Claude is wrong
+
+Real talk: Claude will sometimes do the wrong thing. The safety net is **git**.
+
+```bash
+# Undo all uncommitted changes in a file
+git checkout -- src/some-file.ts
+
+# Undo all uncommitted changes in the whole working tree
+git checkout -- .
+
+# Roll back to the last commit (keeps changes staged for review)
+git reset --soft HEAD~1
+
+# Nuke the last commit entirely (use carefully)
+git reset --hard HEAD~1
+```
+
+**The big promise:** GitHub keeps every version of every file forever. Until you `git push --force` over your own history (rare, intentional), nothing is gone.
+
+If you commit small and commit often, the "undo" is always cheap.
 
 ---
 
@@ -440,7 +545,7 @@ You can run Claude Code on a **remote machine** and drive it from your laptop �
 - You're working on a server you'd never copy locally
 - You want the same Claude session from multiple machines
 
-**Caveat:** Setup is fiddlier than local. Once it's set up, it's transparent.
+**Setup:** if you already SSH into a dev box, you're 90% there — install Claude Code on the remote, then SSH in and run `claude` like you would locally. Tmux/screen for persistent sessions.
 
 ---
 
@@ -473,11 +578,27 @@ Stop the tunnel when you're done — the URL dies with it.
 
 ---
 
+## MCP — Claude talks to your tools
+
+**MCP** (Model Context Protocol) lets Claude Code call out to **other systems** while you're working: Linear, Notion, Slack, Google Drive, your CRM, your monitoring dashboards.
+
+You configure an "MCP server" for each tool. Claude can then:
+- Read Linear tickets to pull context into a feature
+- Update a Notion page when work ships
+- Search Drive for a spec doc instead of you copy-pasting it
+- Post a release-notes summary to Slack
+
+**Why it matters for teams:** the work doesn't happen only in the repo. MCP brings the rest of your workflow into the same conversation.
+
+Configure under `claude mcp` or in your settings — start with one server, expand as it pays off.
+
+---
+
 ## Wrapping up
 
 What you got from this starter and this deck:
 
-- A real fork-and-go template — login, admin, roles, 2FA, flags, audit
+- A real fork-and-go template — login, admin, roles, 2FA, flags, audit log
 - A working `.claude/` setup — agents, skills, CLAUDE.md, settings
 - An SDLC playbook — phases, cadence, decisions, work-log, release-notes
 - The reasoning behind every piece, in plain language
@@ -497,8 +618,7 @@ What you got from this starter and this deck:
 ## Questions?
 
 Find me at **chenson42@gmail.com**.
-Source for this deck: `deck/slides.md` in the starter repo.
 
-```
-github.com/chenson42/claudecode
-```
+Source: **github.com/chenson42/claudecode**
+Slides source: `deck/slides.md`
+Rendered PDF: `deck/slides.pdf` (downloadable from GitHub)

@@ -8,6 +8,20 @@ if (!process.env.DATABASE_URL) {
   throw new Error("Set DATABASE_URL in .env.local before running the seed.");
 }
 
+const initialAdmins = (process.env.INITIAL_ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
+if (initialAdmins.length === 0) {
+  console.warn(
+    "[seed] INITIAL_ADMIN_EMAILS is empty — the first sign-in won't auto-receive the admin role. " +
+      "Set a comma-separated list in .env.local (e.g. you@example.com,teammate@example.com) before signing in.",
+  );
+} else {
+  console.log(`[seed] Will auto-admin on first sign-in: ${initialAdmins.join(", ")}`);
+}
+
 const sql = neon(process.env.DATABASE_URL);
 const db = drizzle(sql, { schema });
 
@@ -57,8 +71,15 @@ async function bindAdminFeatures() {
   console.log("bound all features to admin");
 }
 
-await seedRoles();
-await seedFeatures();
-await seedFlags();
-await bindAdminFeatures();
-console.log("done.");
+async function main() {
+  await seedRoles();
+  await seedFeatures();
+  await seedFlags();
+  await bindAdminFeatures();
+  console.log("done.");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth, unstable_update } from "@/auth";
 import { db } from "@/lib/db";
-import { userTotp } from "@/lib/db/schema";
+import { userTotp, auditEvents } from "@/lib/db/schema";
 import { decryptSecret, verifyToken } from "@/lib/two-factor";
 
 export async function verifyTotpAction(formData: FormData) {
@@ -21,6 +21,13 @@ export async function verifyTotpAction(formData: FormData) {
 
   const ok = verifyToken(token, decryptSecret(enrollment.secretCiphertext));
   if (!ok) {
+    await db.insert(auditEvents).values({
+      actorUserId: session.user.id,
+      actorEmail: session.user.email,
+      action: "totp.verify_failed",
+      resourceType: "user",
+      resourceId: session.user.id,
+    });
     const url = new URL("/totp", "http://placeholder");
     url.searchParams.set("error", "invalid");
     url.searchParams.set("callbackUrl", callbackUrl);
@@ -31,6 +38,14 @@ export async function verifyTotpAction(formData: FormData) {
     .update(userTotp)
     .set({ lastUsedAt: new Date() })
     .where(eq(userTotp.userId, session.user.id));
+
+  await db.insert(auditEvents).values({
+    actorUserId: session.user.id,
+    actorEmail: session.user.email,
+    action: "totp.verify_succeeded",
+    resourceType: "user",
+    resourceId: session.user.id,
+  });
 
   await unstable_update({ user: { twoFactorVerified: true } });
   redirect(callbackUrl);

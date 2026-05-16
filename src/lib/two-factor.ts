@@ -4,11 +4,11 @@ import { authenticator } from "otplib";
 const ALGO = "aes-256-gcm";
 
 function key(): Buffer {
-  const k = process.env.TOTP_ENCRYPTION_KEY;
-  if (!k) throw new Error("TOTP_ENCRYPTION_KEY is not set");
+  const k = process.env.AUTH_TOTP_ENCRYPTION_KEY;
+  if (!k) throw new Error("AUTH_TOTP_ENCRYPTION_KEY is not set");
   const buf = Buffer.from(k, "base64");
   if (buf.length !== 32) {
-    throw new Error("TOTP_ENCRYPTION_KEY must decode to 32 bytes");
+    throw new Error("AUTH_TOTP_ENCRYPTION_KEY must decode to 32 bytes");
   }
   return buf;
 }

@@ -8,13 +8,13 @@ Guidance for Claude Code when working in the **Claude Code Starter**.
 
 The **Claude Code Starter** is a fork-and-go Next.js template for new web apps. It is also a teaching artifact for how to work with Claude Code: every file under `.claude/`, every doc in `docs/`, and the conventions in this file are meant to be read, copied, and adapted.
 
-Fork the starter, search-and-replace the project name, set a brand color in `tailwind.config.ts`, fill in `.env.local`, and you have a deployable app with sign-in, an admin shell, roles and permissions, TOTP 2FA, environment feature flags, an audit log, and release notes — all wired and ready to extend.
+Fork the starter, search-and-replace the project name, tune the brand colors in the `@theme` block of `src/app/globals.css`, fill in `.env.local`, and you have a deployable app with sign-in, an admin shell, roles and permissions, TOTP 2FA, environment feature flags, an audit log, and release notes — all wired and ready to extend.
 
 ## What This Starter Gives You
 
 Out of the box, a fork ships with:
 
-- **Authentication** — NextAuth 5 (beta) with Google OAuth and a credentials flow. JWT sessions carry the user's roles, features, and 2FA state.
+- **Authentication** — NextAuth 5 (beta) with Google OAuth. JWT sessions carry the user's roles, features, and 2FA state.
 - **TOTP 2FA** — Enrolment with QR code, verification, recovery codes, and a trusted-device cookie. Secrets are encrypted at rest with `AUTH_TOTP_ENCRYPTION_KEY`.
 - **Roles and permissions** — A `roles` ↔ `features` ↔ `users` model. `FEATURES` in `src/lib/permissions.ts` is the static catalog; `hasFeature()` is the runtime check. Permissions are *separate* from feature flags.
 - **Feature flags** — A `feature_flags` table with an environment-level toggle and rollout percent. `isFlagEnabled(key)` is the runtime check.
@@ -24,24 +24,26 @@ Out of the box, a fork ships with:
 - **Route protection** — `src/middleware.ts` and `src/proxy.ts` enforce the auth + 2FA gate at the edge.
 - **Seed script** — `scripts/seed.ts` creates admin and member roles, seeds every feature in `FEATURE_CATALOG`, and registers a demo feature flag.
 
-## How This User Works
+## How Claude Should Behave in This Repo
 
-The user (`chenson42@gmail.com`) runs Claude Code with `--dangerously-skip-permissions`. That means **Claude does not get an approval prompt before running tools** — no "may I run `npm run build`?" prompt, no "may I edit this file?" prompt. The user has chosen to delegate that judgment to Claude.
+These rules apply regardless of who's forked the project or how they've configured Claude Code:
 
-The practical implications:
-
-- **Claude runs frequent commands, not the user.** Dev servers, builds, typechecks, watchers, log tails, db pushes — Claude runs them directly (in the background when long-lived) and reports the result. Do not tell the user "run `npm run dev`" or "run the tests." That pattern is the exact friction the skip-permissions flag exists to remove. The exception is genuinely interactive commands (e.g. `gcloud auth login`) — those still bounce to the user with the `! ` prefix hint.
 - **Re-render the deck whenever `deck/slides.md` changes.** After editing `deck/slides.md`, run `npm run deck` to refresh both outputs. `deck/slides.pdf` IS committed to the repo (so viewers can download it from GitHub without installing Marp) — re-render *and re-commit it* in the same change as the source edit. `deck/slides.pptx` stays gitignored. If the render fails, fix the cause; don't leave stale outputs behind.
-- **Be deliberate.** Don't run destructive commands speculatively. A wrong `git reset --hard` or `npm run db:push -- --force` doesn't have a user prompt to catch it.
-- **Wait for explicit approval before committing or pushing.** The user wants to read the diff before it goes to git history. Pre-commit and pre-push are explicit user gestures.
-- **Never push without going through `/pre-push`.** The skip-permissions flag is not permission to skip the checklist.
-- **State what you're about to do for non-trivial commands.** A short note ("running `npm run build` now") gives the user a chance to interrupt before the slow thing runs.
+- **Be deliberate with destructive commands.** A wrong `git reset --hard` or `npm run db:push -- --force` is hard to undo. State what you're about to do before non-trivial commands so the user has a chance to interrupt.
+- **Wait for explicit approval before committing or pushing.** Pre-commit and pre-push are user gestures, not background tasks.
+- **Never push without going through `/pre-push`.** The checklist exists so the agent doesn't ship broken builds.
+
+## Original Author's Setup (informational)
+
+The author of this starter (`chenson42@gmail.com`) runs Claude Code with `--dangerously-skip-permissions` and expects Claude to **run frequent commands directly** rather than asking the user — dev servers, builds, typechecks, watchers, log tails, db pushes all happen in Claude's hands. The exception is genuinely interactive commands (e.g. `gcloud auth login`), which bounce back to the user with the `! ` prefix hint.
+
+If you've forked this starter and run Claude Code with the default permission prompts, ignore the above — your existing prompt-before-acting flow is the right behavior for you. The "Behave in This Repo" rules above are the universal ones.
 
 ## Stack
 
 - **Next.js 16** App Router, **React 19**, **TypeScript** strict
 - **Drizzle ORM** + **Neon Postgres** (serverless, with branching)
-- **NextAuth 5 beta** — Google OAuth + Credentials, JWT-backed sessions
+- **NextAuth 5 beta** — Google OAuth, JWT-backed sessions
 - **Tailwind CSS** + shadcn-style primitives via **Radix UI**
 - **otplib** + **qrcode** for TOTP 2FA
 - **Resend** for transactional email (`src/lib/email.ts`)
@@ -53,7 +55,7 @@ The practical implications:
 ```
 src/
 ├── app/
-│   ├── (auth)/signin/       — Sign-in (Google + Credentials)
+│   ├── (auth)/signin/       — Sign-in (Google OAuth)
 │   ├── (auth)/totp/         — TOTP enrolment + verification
 │   ├── (admin)/admin/       — Admin shell (users, flags, docs, 2fa subpages)
 │   ├── access-pending/      — Landing for authenticated users with no roles
@@ -199,21 +201,23 @@ A loop-back from any later phase returns to the **earliest** phase where the fai
 
 ### Per-Feature Tracking
 
-Every piece of work gets a work-log file at `docs/work-log/<slug>.md` from `docs/work-log/_template.md`. The work-log is the source of truth for pipeline state — Claude reads it at session start to determine where the work stands and which agent to invoke next.
+Every piece of work gets a work-log file at `docs/work-log/YYYY-MM-DD-<slug>.md` (use the date the work started) from `docs/work-log/_template.md`. The work-log is the source of truth for pipeline state — Claude reads it at session start to determine where the work stands and which agent to invoke next.
 
 ## Periodic Reviews
 
 Seven reviews run on rolling cadences to keep the codebase, docs, security posture, test coverage, instruction layer, dependency footprint, and the development process itself from drifting.
 
-| Review | Cadence | Why it exists |
-|--------|---------|---------------|
-| **Test coverage** | 7 d | Coverage drifts faster than any other axis on a fast-moving project; a weekly sweep catches gaps while the context for the missing tests is still recent. |
-| **Retrospective** | 7 d | Pipeline efficacy needs short feedback loops — a weekly retrospective produces concrete edits to agents and to this file before bad patterns calcify. |
-| **Code** | 30 d | Complexity hotspots, dead code, and quiet violations of invariants accumulate over weeks; a monthly pass keeps the codebase shaped like the starter is meant to be shaped. |
-| **Documentation** | 30 d | Docs drift silently — a monthly audit catches stale environment-variable lists, broken cross-links, and CLAUDE.md sections that no longer match reality. |
-| **Security** | 30 d | A monthly sweep of auth boundaries, secret handling, dependency CVEs, and OWASP surface area catches the slow drift between active security incidents. |
-| **Agent & instruction** | 30 d | Agents and `.claude/` settings accumulate stale guidance, unused tools, and references to features that no longer exist; a monthly review keeps the instruction layer honest. |
-| **Dependencies** | 30 d | A monthly review of `npm outdated` and `npm audit` keeps the dependency graph current without inviting weekly churn. |
+| Review | Cadence | Owner | Why it exists |
+|--------|---------|-------|---------------|
+| **Test coverage** | 7 d | qa | Coverage drifts faster than any other axis on a fast-moving project; a weekly sweep catches gaps while the context for the missing tests is still recent. |
+| **Retrospective** | 7 d | all agents → tech-lead synthesizes | Pipeline efficacy needs short feedback loops — a weekly retrospective produces concrete edits to agents and to this file before bad patterns calcify. |
+| **Code** | 30 d | architect | Complexity hotspots, dead code, and quiet violations of invariants accumulate over weeks; a monthly pass keeps the codebase shaped like the starter is meant to be shaped. |
+| **Documentation** | 30 d | tech-lead | Docs drift silently — a monthly audit catches stale environment-variable lists, broken cross-links, and CLAUDE.md sections that no longer match reality. |
+| **Security** | 30 d | api-developer + database-admin | A monthly sweep of auth boundaries, secret handling, dependency CVEs, and OWASP surface area catches the slow drift between active security incidents. |
+| **Agent & instruction** | 30 d | tech-lead | Agents and `.claude/` settings accumulate stale guidance, unused tools, and references to features that no longer exist; a monthly review keeps the instruction layer honest. |
+| **Dependencies** | 30 d | deployment-engineer | A monthly review of `npm outdated` and `npm audit` keeps the dependency graph current without inviting weekly churn. |
+
+Ownership claims for each review are reflected in the relevant agent file under `.claude/agents/` — read the named owner's agent file for the specifics of what each review covers and where its detail file lands.
 
 ### Cadence Check at Session Start
 
@@ -269,8 +273,8 @@ npm run build        # Production build
 npm run start        # Run the production build
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
-npm run db:push      # Sync Drizzle schema to the live database (lossy)
-npm run db:generate  # Generate a versioned SQL migration in drizzle/
+npm run db:push      # Sync Drizzle schema to the live database (lossy — dev only)
+npm run db:generate  # Generate a versioned SQL migration in drizzle/ (use this once you have data you care about)
 npm run db:seed      # Seed roles, features, and the demo flag
 npm run deck         # Render deck/slides.md → slides.pptx + slides.pdf
 npm run deck:pptx    # PowerPoint only
