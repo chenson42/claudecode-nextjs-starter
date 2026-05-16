@@ -31,6 +31,7 @@ The user (`chenson42@gmail.com`) runs Claude Code with `--dangerously-skip-permi
 The practical implications:
 
 - **Claude runs frequent commands, not the user.** Dev servers, builds, typechecks, watchers, log tails, db pushes — Claude runs them directly (in the background when long-lived) and reports the result. Do not tell the user "run `npm run dev`" or "run the tests." That pattern is the exact friction the skip-permissions flag exists to remove. The exception is genuinely interactive commands (e.g. `gcloud auth login`) — those still bounce to the user with the `! ` prefix hint.
+- **Re-render the deck whenever `deck/slides.md` changes.** After editing `deck/slides.md`, run `npm run deck` to refresh `deck/slides.pptx` and `deck/slides.pdf`. The rendered outputs are gitignored — they exist only on the user's machine — but they must stay in sync with the source so the user can present without an extra step. If the render fails, fix the cause; don't leave stale outputs behind.
 - **Be deliberate.** Don't run destructive commands speculatively. A wrong `git reset --hard` or `npm run db:push -- --force` doesn't have a user prompt to catch it.
 - **Wait for explicit approval before committing or pushing.** The user wants to read the diff before it goes to git history. Pre-commit and pre-push are explicit user gestures.
 - **Never push without going through `/pre-push`.** The skip-permissions flag is not permission to skip the checklist.
@@ -271,6 +272,10 @@ npm run typecheck    # tsc --noEmit
 npm run db:push      # Sync Drizzle schema to the live database (lossy)
 npm run db:generate  # Generate a versioned SQL migration in drizzle/
 npm run db:seed      # Seed roles, features, and the demo flag
+npm run deck         # Render deck/slides.md → slides.pptx + slides.pdf
+npm run deck:pptx    # PowerPoint only
+npm run deck:pdf     # PDF only
+npm run deck:html    # Live-reload HTML preview
 ```
 
 Generate an `AUTH_SECRET` with:
