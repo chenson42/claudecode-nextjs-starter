@@ -15,8 +15,9 @@ import {
   normalizeRecoveryCode,
   verifyToken,
 } from "@/lib/two-factor";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-function totpRedirectUrl(callbackUrl: string, error?: "invalid"): string {
+function totpRedirectUrl(callbackUrl: string, error?: "invalid" | "rate_limited"): string {
   const params = new URLSearchParams({ callbackUrl });
   if (error) params.set("error", error);
   return `/totp?${params.toString()}`;
@@ -49,6 +50,22 @@ export async function verifyTotpAction(formData: FormData) {
     where: eq(userTotp.userId, session.user.id),
   });
   if (!enrollment) redirect("/admin/2fa");
+
+  // Rate limit: 10/min by userId.
+  // Rejection travels via redirect query param because this action always uses
+  // redirect() rather than returning an ActionResult. retryAfterSeconds is NOT
+  // forwarded — the UX copy is intentionally vague ("wait a moment") for the
+  // short 1-minute window.
+  const limited = await checkRateLimit(
+    `totp:${session.user.id}`,
+    { max: 10, windowSeconds: 60 },
+    {
+      userId: session.user.id,
+      actor: session.user.email ?? session.user.id,
+      reason: "totp_verify",
+    },
+  );
+  if (!limited.allowed) redirect(totpRedirectUrl(callbackUrl, "rate_limited"));
 
   const trimmed = rawInput.trim();
   const isSixDigit = /^\d{6}$/.test(trimmed);

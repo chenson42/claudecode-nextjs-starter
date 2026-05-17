@@ -5,6 +5,55 @@ paginate: true
 class: lead
 header: "Working with Claude Code"
 footer: "github.com/chenson42/claudecode"
+style: |
+  section {
+    font-size: 26px;
+    line-height: 1.35;
+    padding: 50px 60px 70px 60px;
+  }
+  section h1 {
+    font-size: 46px;
+  }
+  section h2 {
+    font-size: 34px;
+    margin-top: 0;
+    margin-bottom: 18px;
+  }
+  section ul, section ol {
+    margin: 8px 0;
+    padding-left: 1.2em;
+  }
+  section li {
+    margin-bottom: 4px;
+  }
+  section li > ul, section li > ol {
+    margin: 4px 0;
+  }
+  section p {
+    margin: 8px 0;
+  }
+  section pre {
+    font-size: 0.7em;
+    padding: 12px 16px;
+    margin: 10px 0;
+    line-height: 1.3;
+  }
+  section code {
+    font-size: 0.85em;
+  }
+  section table {
+    font-size: 0.82em;
+  }
+  section table th, section table td {
+    padding: 4px 8px;
+  }
+  section blockquote {
+    margin: 8px 0;
+    font-size: 0.9em;
+  }
+  section.lead {
+    font-size: 32px;
+  }
 ---
 
 # Working with Claude Code

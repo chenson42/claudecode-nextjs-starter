@@ -1,12 +1,108 @@
 # Claude Code Starter
 
-A fork-and-go Next.js template with the patterns I reach for on every project — login, an admin shell, roles + permissions, TOTP 2FA, feature flags, audit logging, transactional email, and a release-notes viewer. It also doubles as a teaching artifact for [Claude Code](https://claude.ai/code) workflows.
+Two things in one repo:
 
-**Stack:** Next.js 16 · Drizzle ORM · Neon Postgres · NextAuth 5 (Google) · Resend · Vercel · Tailwind
+1. **A fork-and-go Next.js starter** for small-to-medium web apps that need login, an admin shell, roles + permissions, 2FA, feature flags, audit logging, and a self-serve account page on day one.
+2. **A working example of how to use [Claude Code](https://claude.ai/code) to build web software** — agent roles, a 6-phase pipeline, work-log discipline, periodic reviews, slash-command skills, and project memory. Every artifact is real and in the repo; nothing is mocked.
 
-**Deck:** [`deck/slides.pdf`](deck/slides.pdf) — a slide walkthrough of the stack and workflow, written for mixed audiences.
+**Stack:** Next.js 16 · React 19 · TypeScript · Drizzle ORM · Neon Postgres · NextAuth 5 (Google + Credentials) · Resend · Tailwind 4 · Vitest · Playwright · Vercel
 
 **Workflow:** [`CLAUDE.md`](CLAUDE.md) — the 6-phase pipeline, review cadence, agents, skills, and invariants Claude follows when working in this repo.
+
+---
+
+## Start with the deck
+
+The fastest way in is the **training deck** — a 48-slide walkthrough of the stack, the agent SDLC workflow, and the day-to-day patterns I use with Claude Code.
+
+> **[`deck/slides.pdf`](deck/slides.pdf)** — committed to the repo so you can read it without installing anything. **Source:** [`deck/slides.md`](deck/slides.md) (Marp markdown).
+>
+> Topics covered: the stack and why each piece earns its keep · GitHub workflow for non-engineers · what to commit vs. never commit · `.env.example` discipline · `CLAUDE.md` as project memory · the agent roster and the 6-phase pipeline · skills, memory, and `--dangerously-skip-permissions` · plan mode · Cloudflare tunnel for sharing your laptop · the periodic-review cadence and why each one exists · the deck pipeline itself.
+
+Render locally with `npm run deck` — Marp produces both PDF and PPTX outputs.
+
+---
+
+## Is this a good fit for your project?
+
+**Good for**
+
+- Internal tools, ops dashboards, admin-heavy apps
+- Small SaaS or B2B web apps where you need real users, roles, audit logs, and 2FA before you ship anything else
+- Side projects you want to look professional from day one
+- Client / demo work where you'd otherwise hand-roll auth + admin every time
+- Teaching or learning agent-led SDLC patterns on a non-trivial codebase
+
+**Not the right fit for**
+
+- High-traffic consumer apps (the default rate limiter is in-memory; sessions are JWT-only — see v0.3 release notes for the Upstash upgrade path)
+- Apps with a heavy domain data model — the starter ships auth + admin + flags + audit; **your data tables and your business logic are still yours to build**
+- Static marketing sites (overkill)
+- Mobile apps (this is a Next.js web app)
+
+---
+
+## What you get out of the box
+
+**Authentication & accounts**
+
+- Google OAuth and email + password (NextAuth 5 beta, JWT sessions)
+- TOTP 2FA with QR-code enrollment, recovery codes, encrypted at rest
+- Self-serve `/account` page — profile, email change with re-verification, password change, 2FA enrollment for any user, delete-account skeleton
+- Forgot-password flow with one-shot tokens stored hashed at rest, enumeration-defended
+
+**Admin shell at `/admin`**
+
+- Users list with role assignment + per-user detail page
+- Per-user 2FA bypass + force-reset for demo/test accounts
+- Feature flag toggles
+- Release-notes viewer that reads `docs/release-notes/vX.Y.md`
+- TOTP admin tools
+
+**Security infrastructure**
+
+- Roles ↔ features permission model (`FEATURES` catalog + `hasFeature()`)
+- Environment feature flags, separate from permissions (`isFlagEnabled()`)
+- Append-only audit log with a typed `AUDIT_ACTIONS` catalog
+- Edge route gate (`src/proxy.ts`) for auth + 2FA enforcement before any page renders
+- Rate limiting on signin, password-reset, email-change, and TOTP verify (in-memory default, optional Upstash Redis)
+
+**Developer infrastructure**
+
+- Vitest unit tests + Playwright e2e (chromium) wired and configured
+- Drizzle-Kit migrations with a committed initial migration
+- Resend wired for transactional email
+- Seed script that bootstraps roles, features, and a local-credentials admin
+- Marp deck pipeline (`npm run deck`)
+
+---
+
+## The SDLC bit — agents, pipeline, work-logs
+
+If you only want the starter, skip this section. If you want a concrete example of building real software with Claude Code, this is the part to read.
+
+The repo is structured around a six-phase pipeline that every feature flows through:
+
+```
+analyst → architect → tech-lead → implementer → qa → analyst
+  (intent)   (shape)    (design)    (build)     (verify)  (ship)
+```
+
+Each phase is owned by a specific **agent** (a markdown file under [`.claude/agents/`](.claude/agents/) that defines a role and its triggers). The full roster: `analyst`, `architect`, `tech-lead`, `api-developer`, `ux-developer`, `full-stack-developer`, `database-admin`, `deployment-engineer`, `qa`.
+
+For every feature or bug fix, a **work-log entry** at [`docs/work-log/`](docs/work-log/) tracks the feature through all six phases — verdicts, design decisions, file changes, test results, ship-vs-intent diff. Real examples to read:
+
+- [`2026-05-16-per-user-2fa-bypass.md`](docs/work-log/2026-05-16-per-user-2fa-bypass.md) — a multi-decision feature with scope expansion
+- [`2026-05-16-admin-signin-access-pending.md`](docs/work-log/2026-05-16-admin-signin-access-pending.md) — a bug-fix variant where the e2e test uncovered the bug
+- [`2026-05-17-account-page.md`](docs/work-log/2026-05-17-account-page.md) — a bundle that bumped against an architect's suggested split
+
+Seven **periodic reviews** with their own cadences (test coverage, retrospective, code, docs, security, agents, dependencies) keep the codebase honest over time. [`docs/reviews/log.md`](docs/reviews/log.md) is the source of truth.
+
+**Slash-command skills** under [`.claude/skills/`](.claude/skills/) automate the repetitive bits: `/pre-push`, `/release-notes`, `/new-feature`, `/security-review`, `/review`. These are real Claude Code skills that run in this repo today.
+
+The whole approach is documented in [`CLAUDE.md`](CLAUDE.md). Fork it, trim it, replace it — but read it first.
+
+---
 
 ## Quick start
 
@@ -19,54 +115,24 @@ npm install
 # 2. Copy env template + fill in values (see below)
 cp .env.example .env.local
 
-# 3. Push schema to your Neon database
-npm run db:push
+# 3. Apply schema migrations to your Neon database
+npm run db:push    # quick & lossy — fine for a fresh DB
+# (or: npm run db:migrate to apply the committed SQL migrations)
 
-# 4. Seed roles, features, and the demo feature flag
+# 4. Seed roles, features, demo flag, and (optionally) a local admin
 npm run db:seed
 
 # 5. Run
 npm run dev
 ```
 
-Sign in with Google. Any email listed in `INITIAL_ADMIN_EMAILS` (comma-separated list) receives the `admin` role automatically on first sign-in. Enroll in 2FA at `/admin/2fa`, then everything in `/admin` is yours.
+**Sign in via Google:** any email listed in `INITIAL_ADMIN_EMAILS` (comma-separated) receives the `admin` role automatically on first sign-in.
 
-For local testing without setting up Google OAuth, set `SEED_ADMIN_EMAIL` + `SEED_ADMIN_PASSWORD` in `.env.local` and run `npm run db:seed` — that provisions a credentials-login admin with 2FA disabled.
+**Sign in without Google:** set `SEED_ADMIN_EMAIL` + `SEED_ADMIN_PASSWORD` in `.env.local` before running `npm run db:seed` — that provisions a Credentials-login admin with 2FA disabled, ideal for local development and demos.
 
-## Environment variables
+Then enroll in 2FA at `/account/2fa` (or `/admin/2fa`), and everything in `/admin` is yours.
 
-Copy `.env.example` → `.env.local` and fill these in:
-
-| Variable | What it is |
-| --- | --- |
-| `DATABASE_URL` | Neon Postgres connection string (pooled) |
-| `AUTH_SECRET` | NextAuth session signing key — `openssl rand -base64 32` |
-| `AUTH_URL` | Public origin, e.g. `http://localhost:3000` |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth credentials |
-| `AUTH_TOTP_ENCRYPTION_KEY` | 32-byte base64 key for encrypting 2FA secrets — `openssl rand -base64 32`. **Rotating it invalidates every enrolled secret.** |
-| `INITIAL_ADMIN_EMAILS` | Comma-separated list of emails that auto-receive the `admin` role on first sign-in |
-| `RESEND_API_KEY` | Resend API key (optional in dev — emails are logged instead) |
-| `RESEND_FROM_EMAIL` | `Name <noreply@yourdomain.com>` |
-
-Never commit `.env.local`. `.gitignore` enforces this.
-
-## What's in the box
-
-- `/signin` — Google OAuth via NextAuth 5
-- `/admin` — gated by feature `admin.dashboard` + TOTP 2FA
-  - `/admin/users` — assign and remove roles, with audit log
-  - `/admin/flags` — toggle environment feature flags
-  - `/admin/docs` — render `docs/release-notes/vX.Y.md` from the repo
-  - `/admin/2fa` — TOTP enrollment with QR code
-- `src/lib/permissions.ts` — `FEATURES` catalog + `hasFeature()`
-- `src/lib/flags.ts` — `isFlagEnabled(key)`
-- `src/lib/two-factor.ts` — TOTP encrypt/decrypt + verify
-- `src/lib/email.ts` — Resend helper
-- `src/proxy.ts` — auth + 2FA route gate (Next 16 `proxy.ts` convention; replaces the deprecated `middleware.ts`)
-- `scripts/seed.ts` — seeds roles, features, and a demo flag
-- `.claude/` — 9 agents, 5 skills, settings
-- `docs/` — decisions log, work-log template, review cadence log, versioned release notes
-- `deck/` — Marp training deck (`npm run deck` to render)
+---
 
 ## Common commands
 
@@ -75,17 +141,49 @@ npm run dev          # Next.js dev server
 npm run build        # Production build
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint
+npm run test         # Vitest unit tests (run once)
+npm run test:watch   # Vitest in watch mode
+npm run test:e2e     # Playwright e2e (dev server must be running)
 npm run db:push      # Sync Drizzle schema → DB (lossy; dev only)
 npm run db:generate  # Generate a SQL migration (use once you have real data)
-npm run db:seed      # Seed roles + features + demo flag
+npm run db:migrate   # Apply committed migrations (production-safe)
+npm run db:seed      # Seed roles + features + demo flag + local admin
+npm run check:audit  # Tripwire: every action mutation must have an audit row
 npm run deck         # Render the training deck → slides.pptx + slides.pdf
 ```
+
+---
+
+## Environment variables
+
+Copy `.env.example` → `.env.local` and fill these in:
+
+| Variable | What it is | Required? |
+| --- | --- | --- |
+| `DATABASE_URL` | Neon Postgres connection string (pooled) | Yes |
+| `AUTH_SECRET` | NextAuth session signing key — `openssl rand -base64 32` | Yes |
+| `AUTH_URL` | Public origin, e.g. `http://localhost:3000` | Yes |
+| `NEXT_PUBLIC_APP_URL` | Public origin used to build email links | Yes |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth credentials | Yes (for Google sign-in) |
+| `AUTH_TOTP_ENCRYPTION_KEY` | 32-byte base64 key for encrypting 2FA secrets — `openssl rand -base64 32`. **Rotating it invalidates every enrolled secret.** | Yes |
+| `INITIAL_ADMIN_EMAILS` | Comma-separated emails that auto-receive the `admin` role on first sign-in | Recommended |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Credentials-login admin for local development | Optional |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Resend API key + sender (`Name <noreply@yourdomain.com>`). Emails log to stdout in dev if absent. | Optional |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Activates the distributed rate limiter. Recommended for production deployments. | Optional |
+| `RATE_LIMIT_DISABLED` | Set to `true` in `.env.local` to bypass rate-limits during e2e iteration. **Never set in production.** | Optional |
+
+Never commit `.env.local`. `.gitignore` enforces this.
+
+---
 
 ## Forking notes
 
 - The `.claude/agents/`, `.claude/skills/`, and `CLAUDE.md` describe my own workflow opinions. Rewrite them as you go — they're meant to be replaced, not preserved verbatim.
-- The 6-phase pipeline in `CLAUDE.md` is heavy. Trim it to whatever you actually use.
+- The 6-phase pipeline in `CLAUDE.md` is heavy. Trim it to whatever you actually use. The whole point is to make the discipline *visible*, not to make every fork follow it.
 - The author runs Claude Code with `--dangerously-skip-permissions` — if you don't, ignore the "Original Author's Setup" section of `CLAUDE.md`. Everything in "How Claude Should Behave in This Repo" still applies.
+- New `*.test.ts` files live next to the source they test. New e2e specs live under `e2e/`. Both runners are already wired — just write tests.
+
+---
 
 ## License
 

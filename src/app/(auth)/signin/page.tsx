@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { signIn } from "@/auth";
 
 export default async function SignInPage({
@@ -92,6 +93,14 @@ export default async function SignInPage({
         >
           Sign in with email
         </button>
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
       </form>
 
       <p className="mt-4 text-xs text-muted-foreground">

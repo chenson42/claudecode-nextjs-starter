@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { toast } from "sonner";
 import * as Dialog from "@radix-ui/react-dialog";
 import { setTwoFactorRequired, forceResetTwoFactor } from "./actions";
 
@@ -22,44 +23,36 @@ export function TwoFactorCard({
   isSelf,
 }: TwoFactorCardProps) {
   const [isPending, startTransition] = useTransition();
-  const [statusMessage, setStatusMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   function handleToggleRequired(nextRequired: boolean) {
-    setStatusMessage(null);
     startTransition(async () => {
       const result = await setTwoFactorRequired({
         userId,
         required: nextRequired,
       });
       if (result.ok) {
-        setStatusMessage({
-          type: "success",
-          text: nextRequired
+        toast.success(
+          nextRequired
             ? "2FA is now required. Takes effect on the user's next page load."
             : "2FA requirement disabled. Takes effect on the user's next page load.",
-        });
+        );
       } else {
-        setStatusMessage({ type: "error", text: result.error });
+        toast.error(result.error);
       }
     });
   }
 
   function handleForceReset() {
     setResetDialogOpen(false);
-    setStatusMessage(null);
     startTransition(async () => {
       const result = await forceResetTwoFactor({ userId });
       if (result.ok) {
-        setStatusMessage({
-          type: "success",
-          text: "2FA enrollment wiped. The user will be required to re-enroll on their next sign-in.",
-        });
+        toast.success(
+          "2FA enrollment wiped. The user will be required to re-enroll on their next sign-in.",
+        );
       } else {
-        setStatusMessage({ type: "error", text: result.error });
+        toast.error(result.error);
       }
     });
   }
@@ -112,18 +105,6 @@ export function TwoFactorCard({
           Disabling does not remove an enrolled TOTP secret. If you re-enable
           the requirement, the user&apos;s existing secret remains valid.
         </p>
-      )}
-
-      {statusMessage && (
-        <div
-          className={`mt-4 rounded-md px-3 py-2 text-sm ${
-            statusMessage.type === "success"
-              ? "bg-green-500/10 text-green-700 dark:text-green-300"
-              : "bg-red-500/10 text-red-700 dark:text-red-300"
-          }`}
-        >
-          {statusMessage.text}
-        </div>
       )}
 
       <div className="mt-6 space-y-4">

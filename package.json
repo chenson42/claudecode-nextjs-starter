@@ -1,6 +1,6 @@
 {
   "name": "claudecode-starter",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Fork-and-go Next.js + Neon + NextAuth starter with admin, roles/permissions, TOTP 2FA, feature flags, and release notes. Authored as a Claude Code training artifact.",
   "engines": {
@@ -33,6 +33,8 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -47,6 +49,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.12.3",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

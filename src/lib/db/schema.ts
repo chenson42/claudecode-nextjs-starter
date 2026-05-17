@@ -222,6 +222,53 @@ export const migrationSeeds = pgTable("migration_seeds", {
     .defaultNow(),
 });
 
+// Email verification tokens — used for self-serve email address changes.
+// A new token is minted when the user submits a new email; it expires after
+// 24 hours. The uniqueIndex on userId enforces one in-flight change per user.
+
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull(), // crypto.randomBytes(32).toString("hex")
+    newEmail: text("new_email").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ix_email_ver_token").on(t.token),
+    uniqueIndex("ix_email_ver_user").on(t.userId),
+  ],
+);
+
+// Password reset tokens — used for self-serve forgot-password flow.
+// The raw token is emailed; only the SHA-256 hex is stored.
+// The uniqueIndex on userId enforces one in-flight reset per user (delete-then-insert).
+
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull(), // SHA-256 hex of crypto.randomBytes(32).toString("base64url")
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ix_pwd_reset_token").on(t.token),
+    uniqueIndex("ix_pwd_reset_user").on(t.userId),
+  ],
+);
+
 // Relations
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -232,6 +279,8 @@ export const usersRelations = relations(users, ({ many, one }) => ({
     fields: [users.id],
     references: [userTotp.userId],
   }),
+  emailVerificationTokens: many(emailVerificationTokens),
+  passwordResetTokens: many(passwordResetTokens),
 }));
 
 export const rolesRelations = relations(roles, ({ many }) => ({
@@ -251,3 +300,23 @@ export const roleFeaturesRelations = relations(roleFeatures, ({ one }) => ({
     references: [features.key],
   }),
 }));
+
+export const emailVerificationTokensRelations = relations(
+  emailVerificationTokens,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [emailVerificationTokens.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const passwordResetTokensRelations = relations(
+  passwordResetTokens,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [passwordResetTokens.userId],
+      references: [users.id],
+    }),
+  }),
+);

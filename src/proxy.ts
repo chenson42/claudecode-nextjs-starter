@@ -9,6 +9,8 @@ const PUBLIC_PATHS = new Set([
   "/access-pending",
   "/robots.txt",
   "/sitemap.xml",
+  "/forgot-password",
+  "/reset-password",
 ]);
 
 const PROTECTION_RULES: Array<{ pattern: RegExp; required: string }> = [
@@ -22,6 +24,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith("/api/")) return NextResponse.next();
+  if (pathname.startsWith("/account/verify-email/")) return NextResponse.next();
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
   const session = await edgeAuth();

@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { authConfig } from "@/lib/auth/config";
 import { ADMIN_ROLE, FEATURES, MEMBER_ROLE } from "@/lib/permissions";
+import { getRequestIp, checkRateLimit } from "@/lib/rate-limit";
 
 const INITIAL_ADMIN_EMAILS = (process.env.INITIAL_ADMIN_EMAILS ?? "")
   .split(",")
@@ -85,10 +86,24 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = (credentials?.email as string | undefined)?.toLowerCase();
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
+
+        // Rate limit: 5/min keyed by ip:email composite.
+        // NextAuth 5 beta passes the original Request as the second arg.
+        // If headers are unavailable for any reason the key degrades to
+        // "signin:unknown:<email>" — still a meaningful per-email limit.
+        const ip = getRequestIp(
+          (request as Request | undefined)?.headers ?? new Headers(),
+        );
+        const limited = await checkRateLimit(
+          `signin:${ip ?? "unknown"}:${email}`,
+          { max: 5, windowSeconds: 60 },
+          { userId: null, actor: email, reason: "credentials_signin" },
+        );
+        if (!limited.allowed) return null; // NextAuth surfaces CredentialsSignin
 
         const user = await db.query.users.findFirst({
           where: eq(users.email, email),

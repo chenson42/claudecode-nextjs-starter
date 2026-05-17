@@ -50,6 +50,11 @@ export default async function TotpPage({
               That code didn&apos;t match. Try again, or use a recovery code.
             </p>
           )}
+          {sp.error === "rate_limited" && (
+            <p className="text-sm text-red-500">
+              Too many attempts. Please wait a moment before trying again.
+            </p>
+          )}
           <button
             type="submit"
             className="w-full rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
