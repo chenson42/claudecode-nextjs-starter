@@ -123,18 +123,13 @@ const useUpstash =
 
 // Named limiter cache: keyed by "${max}:${windowSeconds}" to avoid creating a
 // new Ratelimit instance on every call for the same parameters.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let upstashLimiters: Map<string, any> | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let UpstashRatelimit: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let UpstashRedis: any = null;
 
 if (useUpstash) {
   // These imports are safe — all call sites are Node runtime, not Edge.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   UpstashRatelimit = require("@upstash/ratelimit").Ratelimit;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   UpstashRedis = require("@upstash/redis").Redis;
   upstashLimiters = new Map();
 }
@@ -150,7 +145,6 @@ function getUpstashRedis() {
   return _upstashRedis;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getUpstashLimiter(max: number, windowSeconds: number): any {
   const cacheKey = `${max}:${windowSeconds}`;
   if (!upstashLimiters!.has(cacheKey)) {

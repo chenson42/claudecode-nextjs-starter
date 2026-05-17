@@ -130,6 +130,10 @@ export default async function TwoFactorPage() {
   // round-trips the ciphertext — the confirm action reads it from the DB.
   const secret = generateSecret();
   const ciphertext = encryptSecret(secret);
+  // Server Components re-execute per request, not on a React render cycle —
+  // `Date.now()` here is the request timestamp, not a reactive value. The
+  // react-hooks/purity lint is a false positive for the server side.
+  // eslint-disable-next-line react-hooks/purity
   const expiresAt = new Date(Date.now() + PENDING_TTL_MINUTES * 60 * 1000);
 
   await db
@@ -154,6 +158,9 @@ export default async function TwoFactorPage() {
         <li>1. Install an authenticator app (Google Authenticator, 1Password, Authy).</li>
         <li>2. Scan this QR code:</li>
       </ol>
+      {/* QR code is a data: URL generated server-side; `next/image` would add */}
+      {/* a remote-loader round-trip and a layout-shift placeholder for no win. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={qrDataUrl}
         alt="TOTP QR code"
