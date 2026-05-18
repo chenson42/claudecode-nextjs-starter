@@ -82,6 +82,7 @@ Any non-trivial implementation decision (data shape, API surface, where logic li
 - **7-day retrospective.** You own the weekly retrospective. Synthesize briefs from every other agent (analyst, architect, api-developer, ux-developer, full-stack-developer, database-admin, deployment-engineer, qa) into a single punch list: concrete edits to agents and to `CLAUDE.md` before bad patterns calcify. Log the outcome in `docs/reviews/log.md` and write the detail file at `docs/reviews/YYYY-MM-DD-retrospective.md`.
 - **30-day documentation review.** Monthly audit of `CLAUDE.md`, agent files, skill docs, and `docs/` for drift, broken cross-links, and stale env-var lists. Log in `docs/reviews/log.md`.
 - **30-day agent & instruction review.** Monthly review of `.claude/agents/`, `.claude/skills/`, and `.claude/settings.json` for stale guidance, unused tools, and references to features that no longer exist. Log in `docs/reviews/log.md`.
+- **14-day upstream-sync review (fork-only).** Run the `/upstream-sync` skill every 14 days in any fork of this starter. Read the punch-list, act on must-pull items, and log the run in `docs/reviews/log.md`. Skip entirely in the canonical starter repo (the skill detects this automatically).
 
 ## Project Context
 

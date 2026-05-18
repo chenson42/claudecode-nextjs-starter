@@ -4,6 +4,42 @@ Architectural and implementation decisions for the Claude Code Starter. Newest f
 
 ---
 
+## DECISION-009: Upstream-sync canonical URL — hardcoded in skill, not read from package.json
+
+**Status:** Resolved
+**Date:** 2026-05-18
+
+**Decision:** The canonical starter URL (`https://github.com/chenson42/claudecode`) is hardcoded as a constant inside `.claude/skills/upstream-sync/SKILL.md`. It is NOT read from `package.json`.
+
+**Rationale:** `package.json` in this project has no `repository` field (confirmed by grep). Requiring forks to populate `package.json` to make fork-detection work would be a silent failure mode — most forks won't know to add it. The hardcoded URL is inspectable inside the skill file itself, and a fork that deliberately wants to change the upstream target would edit the skill anyway. The alternative (reading from some config field) adds a new convention that nothing else in the project uses.
+
+**Tradeoff:** If the canonical repo ever moves (org rename, repo rename), every fork's skill file would need to be updated. This is acceptable because repo moves are rare and the skill is the one file you'd update anyway.
+
+**Impact:** Phase 4 sets `CANONICAL_URL = "https://github.com/chenson42/claudecode"` in the skill's pre-flight section. Trailing `.git` is stripped from `git remote get-url origin` output before comparison.
+
+---
+
+## DECISION-008: Upstream-sync review — skill placement, state file, cadence, and agent owner
+
+**Status:** Resolved
+**Date:** 2026-05-18
+
+**Decision:** Four sub-decisions bundled here because they are all inter-dependent:
+
+1. **Skill body:** `.claude/skills/upstream-sync/SKILL.md` — matches the single-file-per-skill convention already established by every other skill in `.claude/skills/`.
+
+2. **State file:** `.claude/upstream-state.json` — flat, machine-readable, committed to the fork's repo (not gitignored). Shape (sketch): `{ "upstreamUrl": "...", "forkPointSha": "...", "lastSyncedSha": "...", "lastSyncedDate": "..." }`. This is simpler than parsing prose from `docs/reviews/log.md` and survives log re-formatting. No `.claude/state/` subdirectory created — a single file is sufficient and the "state directory for future files" risk is over-engineering.
+
+3. **Cadence:** **14 days.** The two existing 7-day reviews are high-frequency by design (test coverage, retrospective). The five 30-day reviews are for slower-moving surfaces. Security patches from upstream can sit 30 days in a fork without notice; 14 days halves that exposure without adding session-start noise. `upstream-sync` is added to `docs/reviews/log.md` as `upstream-sync` (cadence: 14 days).
+
+4. **Agent owner:** **tech-lead.** Already owns the retrospective (7-day) and documentation review (30-day). The upstream-sync review is instruction-layer work — reading release notes and commit classifications — which is directly analogous to the documentation review. A new section is appended to `tech-lead.md` under `## Ownership`. No new agent.
+
+**Rationale summary:** Smallest footprint, consistent with existing conventions, 14-day cadence chosen for security-fix latency rather than convenience.
+
+**Impact:** Adds `.claude/skills/upstream-sync/SKILL.md` (in Phase 4). Adds `.claude/upstream-state.json` (created by the skill on first run). Edits `docs/reviews/log.md` header bullet list (add `upstream-sync`). Edits `CLAUDE.md` `## Periodic Reviews` table (add 8th row) and changes "Seven reviews" to "Eight reviews". Edits `.claude/agents/tech-lead.md` `## Ownership` section (add upstream-sync paragraph).
+
+---
+
 ## DECISION-007: `<FormattedDate>` lives in `src/components/shared/`, not `src/components/ui/`
 
 **Status:** Resolved

@@ -19,6 +19,7 @@ Where `<type>` is one of:
 - `security` (cadence: 30 days)
 - `agent-instruction` (cadence: 30 days)
 - `dependencies` (cadence: 30 days)
+- `upstream-sync` (cadence: 14 days) — fork-only; N/A in the canonical starter
 
 For substantial reviews that produce significant findings, also write `docs/reviews/YYYY-MM-DD-<type>.md` with the details and link it from the log entry like:
 

@@ -95,8 +95,12 @@ test.describe("Timezone-safe dates", () => {
 
       // Independent computation of what FormattedDate *should* produce in
       // this context's TZ — proves the visible string was produced by
-      // toLocaleString in the configured TZ, not by some other path.
+      // toLocaleString in the configured TZ, not by some other path. The
+      // toLocaleString call runs *inside the browser via page.evaluate*, not
+      // in Node, so the FormattedDate ESLint rule (which exists to prevent
+      // server-side TZ leaks) does not apply here.
       const localized = await page.evaluate(
+        // eslint-disable-next-line no-restricted-syntax
         (iso) => new Date(iso).toLocaleString(),
         dateTime,
       );

@@ -166,6 +166,40 @@ Echo this list back to the user — these are the things only they can do:
 
 ---
 
-## Step 8: Don't commit
+## Step 8: Write the upstream-sync state file
+
+After all find-replaces are complete, write `.claude/upstream-state.json` so the `/upstream-sync` skill knows where this fork started and which files were personalized.
+
+```json
+{
+  "upstreamUrl": "https://github.com/chenson42/claudecode",
+  "forkPointSha": "",
+  "lastSyncedSha": "",
+  "lastSyncedDate": "<today YYYY-MM-DD>",
+  "personalizedPaths": [
+    "package.json",
+    "src/app/layout.tsx",
+    "src/app/page.tsx",
+    "src/app/(auth)/signin/page.tsx",
+    "src/app/globals.css",
+    "CLAUDE.md",
+    "README.md"
+  ]
+}
+```
+
+Notes on each field:
+
+- `upstreamUrl` — always this value; forks do not change it.
+- `forkPointSha` — leave empty string. The first `/upstream-sync` run will ask the user to confirm the SHA (or compute it automatically via `git merge-base` if an `upstream` remote is configured).
+- `lastSyncedSha` — same as `forkPointSha`; both start empty and are filled in at first sync.
+- `lastSyncedDate` — today's date. Primes the 14-day cadence clock so the first `upstream-sync` review is not shown as overdue immediately after personalization.
+- `personalizedPaths` — the list above covers the files that Step 4 edits by default. If the user made additional edits in Steps 4–5 (e.g. replaced the license, stripped the deck), append those file paths manually.
+
+If the file already exists (re-running this skill), merge rather than overwrite: preserve any existing `forkPointSha` / `lastSyncedSha` values, update `lastSyncedDate` to today, and union the `personalizedPaths` arrays.
+
+---
+
+## Step 9: Don't commit
 
 Do not commit the personalize-starter edits. The user reviews the diff (`git diff`) and commits when they're satisfied. Recommend a single commit titled `"Personalize for <project name>"` so future contributors can see the fork point clearly.
