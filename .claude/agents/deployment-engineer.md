@@ -55,12 +55,34 @@ Required in production:
 | `DATABASE_URL_UNPOOLED` | Direct connection for Drizzle Kit and migrations. |
 | `AUTH_SECRET` | NextAuth JWT signing key. Generate with `openssl rand -base64 32`. |
 | `AUTH_URL` | Public origin (e.g., `https://app.example.com`). |
+| `NEXT_PUBLIC_APP_URL` | Public origin used to build links inside transactional emails (verify-email, password-reset). Usually mirrors `AUTH_URL`. |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth credentials. |
-| `AUTH_TOTP_ENCRYPTION_KEY` | 32-byte key for encrypting TOTP secrets at rest. |
+| `AUTH_TOTP_ENCRYPTION_KEY` | 32-byte key for encrypting TOTP secrets at rest. Rotating it invalidates every enrolled TOTP secret. |
+| `INITIAL_ADMIN_EMAILS` | Comma-separated email allowlist. Matching users receive the `admin` role on first sign-in. |
+
+Required if you use the Credentials provider locally:
+
+| Variable | Purpose |
+|----------|---------|
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Provisioned by `npm run db:seed` as the local-credentials admin (2FA off by default). Also read by Playwright e2e. |
+
+Required if you send email:
+
+| Variable | Purpose |
+|----------|---------|
+| `RESEND_API_KEY` | Resend API key. Without it, emails log to stdout in dev. |
+| `RESEND_FROM_EMAIL` | `Display Name <noreply@your-domain>`. |
 
 Optional:
-- `AUTH_TRUST_HOST` — set to `true` when running behind a proxy that rewrites Host.
-- Per-fork additions (mail provider, analytics, etc.) — document them in `CLAUDE.md` when you add them.
+
+| Variable | Purpose |
+|----------|---------|
+| `AUTH_TRUST_HOST` | Set to `true` when running behind a proxy that rewrites Host. |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Activate distributed rate limiting. In-memory limiter is the default. |
+| `TRUST_PROXY_HEADERS` | Default `false`. Set to `true` ONLY behind a proxy you control that replaces (not appends) `x-forwarded-for`. |
+| `RATE_LIMIT_DISABLED` | Set to `true` in `.env.local` for e2e iteration. **Never set in production.** |
+
+Per-fork additions (analytics, alternative mail providers, etc.) — document them in `CLAUDE.md` and this table when you add them.
 
 ## Common Build Issues
 

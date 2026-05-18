@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { randomBytes, createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { users, passwordResetTokens, auditEvents } from "@/lib/db/schema";
@@ -93,11 +93,21 @@ export async function requestPasswordReset(input: {
 // ---------------------------------------------------------------------------
 // consumeResetToken
 //
-// Validates rawToken, then in a single transaction:
-//   - bcrypt-hashes the new password
-//   - updates users.password
-//   - deletes the token row
-//   - writes USER_PASSWORD_RESET_COMPLETED audit event
+// TOCTOU-safe token consumption via DELETE-returning.
+//
+// The atomic step is:
+//   DELETE FROM password_reset_tokens
+//   WHERE token = $hash AND expires_at > now()
+//   RETURNING *
+//
+// If 0 rows come back the token was already consumed, never existed, or has
+// expired — all map to the same friendly error (no leakage). If 1 row comes
+// back this request owns the token and proceeds to update the password and
+// write the audit event. No read-then-delete race is possible because the
+// DELETE is the check.
+//
+// Sequential steps after the atomic DELETE are safe: the token is gone from
+// the DB, so any concurrent request racing here gets 0 rows and aborts.
 // ---------------------------------------------------------------------------
 
 export async function consumeResetToken(input: {
@@ -130,24 +140,23 @@ export async function consumeResetToken(input: {
     };
   }
 
-  const tokenRow = await db.query.passwordResetTokens.findFirst({
-    where: eq(passwordResetTokens.token, tokenHash),
-  });
+  // Atomic claim: DELETE WHERE token matches AND has not expired, RETURNING the
+  // claimed row. Zero rows → invalid or already consumed (same error either way).
+  const claimed = await db
+    .delete(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.token, tokenHash),
+        gt(passwordResetTokens.expiresAt, new Date()),
+      ),
+    )
+    .returning();
 
-  if (!tokenRow) {
+  if (claimed.length === 0) {
     return { ok: false, error: "Invalid or expired reset link." };
   }
 
-  if (tokenRow.expiresAt < new Date()) {
-    // Clean up the stale row, then report expiry.
-    await db
-      .delete(passwordResetTokens)
-      .where(eq(passwordResetTokens.id, tokenRow.id));
-    return {
-      ok: false,
-      error: "This link has expired. Request a new one.",
-    };
-  }
+  const tokenRow = claimed[0];
 
   const userRow = await db.query.users.findFirst({
     where: eq(users.id, tokenRow.userId),
@@ -160,24 +169,18 @@ export async function consumeResetToken(input: {
 
   const hashed = await hash(input.newPassword, 10);
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(users)
-      .set({ password: hashed })
-      .where(eq(users.id, userRow.id));
+  await db
+    .update(users)
+    .set({ password: hashed })
+    .where(eq(users.id, userRow.id));
 
-    await tx
-      .delete(passwordResetTokens)
-      .where(eq(passwordResetTokens.id, tokenRow.id));
-
-    await tx.insert(auditEvents).values({
-      actorUserId: userRow.id,
-      actorEmail: userRow.email,
-      action: AUDIT_ACTIONS.USER_PASSWORD_RESET_COMPLETED,
-      resourceType: "user",
-      resourceId: userRow.id,
-      metadata: { via: "reset_token" },
-    });
+  await db.insert(auditEvents).values({
+    actorUserId: userRow.id,
+    actorEmail: userRow.email,
+    action: AUDIT_ACTIONS.USER_PASSWORD_RESET_COMPLETED,
+    resourceType: "user",
+    resourceId: userRow.id,
+    metadata: { via: "reset_token" },
   });
 
   return { ok: true };

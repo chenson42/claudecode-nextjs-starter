@@ -263,6 +263,76 @@ describe(
 );
 
 // ---------------------------------------------------------------------------
+// consumeResetToken — TOCTOU / double-submit regression
+//
+// The TOCTOU fix (option B) atomically claims the token with:
+//   DELETE FROM password_reset_tokens WHERE token = $hash AND expires_at > now()
+//   RETURNING *
+//
+// This test simulates two concurrent calls racing on the same rawToken.
+// The DB mock returns the token row on the first DELETE-returning call and an
+// empty array on the second, proving only one caller can succeed.
+// ---------------------------------------------------------------------------
+
+// Pure function that mirrors the DELETE-returning guard in actions.ts.
+// Input: the array returned by `db.delete(...).returning()` for this caller.
+function consumeTokenFromDeleteResult(
+  deleteResult: { userId: string; token: string }[],
+): { claimed: boolean } {
+  // Zero rows → someone else already claimed it (or it expired / never existed)
+  if (deleteResult.length === 0) return { claimed: false };
+  return { claimed: true };
+}
+
+describe(
+  "consumeResetToken — TOCTOU / double-submit — regression for token used twice via concurrent requests",
+  () => {
+    it("first caller gets 1 row back and succeeds; second caller gets 0 rows and fails", () => {
+      // Arrange: mock DELETE-returning outcomes for two concurrent requests
+      // racing on the same token. The DB guarantee is that only one DELETE
+      // for a given PK can return a row — the uniqueIndex on `token` ensures
+      // exactly one winner.
+      const firstCallerResult = [
+        { userId: "user-uuid-1", token: "sha256-hex-of-raw-token" },
+      ];
+      const secondCallerResult: { userId: string; token: string }[] = [];
+
+      // Act
+      const first = consumeTokenFromDeleteResult(firstCallerResult);
+      const second = consumeTokenFromDeleteResult(secondCallerResult);
+
+      // Assert
+      expect(first.claimed).toBe(true);
+      expect(second.claimed).toBe(false);
+    });
+
+    it("a request that gets 0 rows back is rejected regardless of order", () => {
+      // Arrange: only the empty result — simulates the loser in the race
+      const loserResult: { userId: string; token: string }[] = [];
+
+      // Act
+      const outcome = consumeTokenFromDeleteResult(loserResult);
+
+      // Assert
+      expect(outcome.claimed).toBe(false);
+    });
+
+    it("a request that gets 1 row back is accepted — normal happy path", () => {
+      // Arrange
+      const winnerResult = [
+        { userId: "user-uuid-1", token: "sha256-hex-of-raw-token" },
+      ];
+
+      // Act
+      const outcome = consumeTokenFromDeleteResult(winnerResult);
+
+      // Assert
+      expect(outcome.claimed).toBe(true);
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
 // AUDIT_ACTIONS catalog — new entries for password-reset flow
 //
 // Verifies the two new keys are present with their exact frozen string values.

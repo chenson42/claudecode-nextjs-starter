@@ -5,15 +5,13 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import {
   userTotp,
-  userTotpPendingEnrollments,
   userTotpRecoveryCodes,
 } from "@/lib/db/schema";
+import { FRESH_RECOVERY_CODES_COOKIE } from "@/lib/two-factor";
 import {
-  encryptSecret,
-  FRESH_RECOVERY_CODES_COOKIE,
-  generateSecret,
-  otpauthUrl,
-} from "@/lib/two-factor";
+  getOrCreatePendingEnrollment,
+  PENDING_TTL_MINUTES,
+} from "@/lib/totp-pending";
 import {
   confirmEnrollmentAction,
   regenerateRecoveryCodesAction,
@@ -38,8 +36,6 @@ async function consumeFreshCodesCookie(): Promise<string[] | null> {
     return null;
   }
 }
-
-const PENDING_TTL_MINUTES = 10;
 
 export default async function TwoFactorPage() {
   const session = await auth();
@@ -125,30 +121,14 @@ export default async function TwoFactorPage() {
     );
   }
 
-  // No enrollment yet. Mint a fresh secret, store ciphertext server-side in a
-  // pending row, and only show the QR code + verify form. The client never
-  // round-trips the ciphertext — the confirm action reads it from the DB.
-  const secret = generateSecret();
-  const ciphertext = encryptSecret(secret);
-  // Server Components re-execute per request, not on a React render cycle —
-  // `Date.now()` here is the request timestamp, not a reactive value. The
-  // react-hooks/purity lint is a false positive for the server side.
-  // eslint-disable-next-line react-hooks/purity
-  const expiresAt = new Date(Date.now() + PENDING_TTL_MINUTES * 60 * 1000);
-
-  await db
-    .insert(userTotpPendingEnrollments)
-    .values({
-      userId: session.user.id,
-      secretCiphertext: ciphertext,
-      expiresAt,
-    })
-    .onConflictDoUpdate({
-      target: userTotpPendingEnrollments.userId,
-      set: { secretCiphertext: ciphertext, expiresAt, createdAt: new Date() },
-    });
-
-  const otpUrl = otpauthUrl(session.user.email ?? "user@example.com", secret);
+  // Not enrolled — reuse the pending row if it's still valid, otherwise mint
+  // a new one.  Reusing the row means the QR code stays stable across page
+  // reloads within the TTL window, so the secret the user scanned matches the
+  // one the confirm action will verify.
+  const { secret, uri: otpUrl } = await getOrCreatePendingEnrollment(
+    session.user.id,
+    session.user.email ?? "user@example.com",
+  );
   const qrDataUrl = await QRCode.toDataURL(otpUrl);
 
   return (

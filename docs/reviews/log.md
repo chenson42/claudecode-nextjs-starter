@@ -37,6 +37,7 @@ If three retrospectives in a row produce nothing, the cadence itself is suspect 
 ## Entries
 
 <!-- newest entries go here, above the older ones -->
+2026-05-18 | test-coverage | flags.ts and two-factor.ts brought to 100% coverage (6 + 28 tests); full suite 139/139 green; typecheck clean
 2026-05-17 | retrospective | first run; 0 loop-backs across 6 features; top risks: test coverage debt (two-factor.ts/proxy.ts at 0%), 2 security findings survived all phases (open redirect, enrollment loop), CLAUDE.md 3 versions behind; 6 edits proposed; see 2026-05-17-retrospective.md
 2026-05-17 | security | first run; 0 critical, 1 high, 4 medium, 3 low, 2 informational; top: open redirect (callbackUrl), email token plaintext, 2FA enrollment loop; see 2026-05-17-security.md
 2026-05-17 | documentation | first run; 3 critical (CLAUDE.md missing v0.3 features, 2 missing commands, 3 missing route groups), 4 notable, 5 minor; see 2026-05-17-documentation.md

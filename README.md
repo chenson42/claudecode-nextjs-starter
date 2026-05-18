@@ -178,10 +178,17 @@ Never commit `.env.local`. `.gitignore` enforces this.
 
 ## Forking notes
 
+- **Run `/personalize-starter` first.** It walks you through identity, branding, and the three strategic docs (product vision, business plan, branding) in one pass, then does every find-replace across the codebase. Saves you from finding "Claude Code Starter" hardcoded in a sign-in heading three months from now.
 - The `.claude/agents/`, `.claude/skills/`, and `CLAUDE.md` describe my own workflow opinions. Rewrite them as you go — they're meant to be replaced, not preserved verbatim.
 - The 6-phase pipeline in `CLAUDE.md` is heavy. Trim it to whatever you actually use. The whole point is to make the discipline *visible*, not to make every fork follow it.
 - The author runs Claude Code with `--dangerously-skip-permissions` — if you don't, ignore the "Original Author's Setup" section of `CLAUDE.md`. Everything in "How Claude Should Behave in This Repo" still applies.
 - New `*.test.ts` files live next to the source they test. New e2e specs live under `e2e/`. Both runners are already wired — just write tests.
+
+### Heads-up on dependencies
+
+- **NextAuth is on `5.0.0-beta.31`.** v5 is still in beta as of v0.3.x. Stable is expected but unscheduled. If you ship to production on this starter you ship on a beta auth library — that's the deliberate tradeoff for the Next 16 / App Router story to work cleanly. Watch the [next-auth releases](https://github.com/nextauthjs/next-auth/releases) and bump to stable when it lands.
+- **`@neondatabase/serverless` v1.x** is the current line as of v0.3.3.
+- **Tailwind v4 + `@tailwindcss/typography`** — the typography plugin is wired in `globals.css` via `@plugin "@tailwindcss/typography"`. If you swap to Tailwind v3, you'll need to revert to a plugin-array config.
 
 ---
 

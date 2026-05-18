@@ -5,15 +5,16 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import {
   userTotp,
-  userTotpPendingEnrollments,
   userTotpRecoveryCodes,
 } from "@/lib/db/schema";
 import { FRESH_RECOVERY_CODES_COOKIE } from "@/lib/two-factor";
-import { prepareEnrollment, regenerateRecoveryCodes } from "./actions";
+import {
+  getOrCreatePendingEnrollment,
+  PENDING_TTL_MINUTES,
+} from "@/lib/totp-pending";
+import { regenerateRecoveryCodes } from "./actions";
 import { TotpEnrollForm } from "./totp-enroll-form";
 import { RegenerateCodesForm } from "./regenerate-codes-form";
-
-const PENDING_TTL_MINUTES = 10;
 
 async function consumeFreshCodesCookie(): Promise<string[] | null> {
   const jar = await cookies();
@@ -92,30 +93,13 @@ export default async function AccountTwoFactorPage() {
     );
   }
 
-  // Not enrolled — check for a still-valid pending row to avoid minting a new
-  // secret on every page load.
-  const pending = await db.query.userTotpPendingEnrollments.findFirst({
-    where: eq(userTotpPendingEnrollments.userId, session.user.id),
-  });
-
-  // If no pending row (or it's expired), mint a fresh one server-side.
-  // We call prepareEnrollment as a direct server function (not a client action)
-  // so the QR URI is available for SSR without a client round-trip.
-  let enrollData: { uri: string; secret: string };
-
-  if (pending && pending.expiresAt > new Date()) {
-    // Re-use existing pending row — but we need the plaintext secret to
-    // regenerate the URI for display. We already encrypted it; decrypt here.
-    const { decryptSecret, otpauthUrl } = await import("@/lib/two-factor");
-    const plain = decryptSecret(pending.secretCiphertext);
-    const uri = otpauthUrl(session.user.email ?? "user@example.com", plain);
-    enrollData = { uri, secret: plain };
-  } else {
-    enrollData = await prepareEnrollment(
-      session.user.id,
-      session.user.email ?? "user@example.com",
-    );
-  }
+  // Not enrolled — reuse the pending row if it's still valid, otherwise mint
+  // a new one.  Reusing the row keeps the QR code stable across page reloads
+  // within the TTL window so the user's authenticator app stays in sync.
+  const enrollData = await getOrCreatePendingEnrollment(
+    session.user.id,
+    session.user.email ?? "user@example.com",
+  );
 
   return (
     <TotpEnrollForm
