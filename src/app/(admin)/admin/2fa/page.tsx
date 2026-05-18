@@ -17,6 +17,7 @@ import {
   regenerateRecoveryCodesAction,
   resetEnrollmentAction,
 } from "./actions";
+import { FormattedDate } from "@/components/shared/formatted-date";
 
 /**
  * Recovery codes are hashed at rest, so the user only sees their plaintext
@@ -58,9 +59,9 @@ export default async function TwoFactorPage() {
         <h1 className="text-2xl font-semibold">Two-factor authentication</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           You enrolled on{" "}
-          {new Date(existing.enrolledAt).toLocaleDateString()}.
+          <FormattedDate value={existing.enrolledAt} mode="date" />.
           {existing.lastUsedAt && (
-            <> Last used: {new Date(existing.lastUsedAt).toLocaleString()}.</>
+            <> Last used: <FormattedDate value={existing.lastUsedAt} mode="datetime" />.</>
           )}
         </p>
 

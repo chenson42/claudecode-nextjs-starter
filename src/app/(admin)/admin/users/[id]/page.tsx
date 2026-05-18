@@ -7,6 +7,7 @@ import { users, userTotp, userTotpRecoveryCodes } from "@/lib/db/schema";
 import { FEATURES, hasFeature } from "@/lib/permissions";
 import { TwoFactorCard } from "./two-factor-card";
 import { DeactivateCard } from "./deactivate-card";
+import { FormattedDate } from "@/components/shared/formatted-date";
 
 export default async function UserDetailPage({
   params,
@@ -64,7 +65,7 @@ export default async function UserDetailPage({
       <h1 className="text-2xl font-semibold">{user.name ?? user.email}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Account created {new Date(user.createdAt).toLocaleDateString()}.{" "}
+        Account created <FormattedDate value={user.createdAt} mode="date" />.{" "}
         {user.isActive ? "Active" : "Inactive"}.
       </p>
 

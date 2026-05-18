@@ -27,6 +27,7 @@ Out of the box, a fork ships with:
 - **Forgot-password flow** — `/forgot-password` accepts an email and sends a reset link; `/reset-password` accepts the token and sets a new password.
 - **Toast notifications** — Sonner `<Toaster>` is mounted in the root layout. Server actions return `ActionResult<T>` (from `src/types/actions.ts`); components call `toast.success()` / `toast.error()` on the result.
 - **Rate limiting** — `src/lib/rate-limit.ts` provides in-memory sliding-window limiting for server actions; swap in Upstash Redis for multi-instance deployments by setting `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.
+- **Timezone-safe date rendering** — `<FormattedDate>` from `src/components/shared/formatted-date.tsx` renders any timestamp in the *viewer's* TZ; never call `toLocale*()` directly (an ESLint rule enforces this).
 
 ## How Claude Should Behave in This Repo
 
@@ -78,6 +79,9 @@ src/
 │   ├── permissions.ts       — FEATURES catalog + hasFeature()
 │   ├── flags.ts             — isFlagEnabled()
 │   └── two-factor.ts        — TOTP encrypt/decrypt + verify
+├── components/
+│   ├── ui/                  — shadcn primitives (auto-generated; don't hand-edit)
+│   └── shared/              — Cross-cutting components (e.g., <FormattedDate>)
 ├── auth.ts                  — NextAuth entry (re-exported across the app)
 ├── proxy.ts                 — Next 16 route gate (admin + 2FA enforcement)
 └── types/                   — Ambient type declarations
@@ -351,3 +355,7 @@ The `AUTH_TOTP_ENCRYPTION_KEY` is a 32-byte secret used to AES-GCM-encrypt the u
 ### No Secrets in Committed Files
 
 `.env.local`, OAuth keys, the AUTH_SECRET, the TOTP key — none of these belong in git. `.gitignore` already excludes `.env*` except `.env.example`. Don't work around it.
+
+### Timezone-Safe Date Rendering
+
+Never call `toLocaleString()`, `toLocaleDateString()`, or `toLocaleTimeString()` directly in components. On Vercel (UTC), server-rendered timestamps always show UTC to the viewer. Use `<FormattedDate value={...} mode="date|datetime" />` from `src/components/shared/formatted-date.tsx` instead — it SSR-renders an ISO fallback and swaps in the viewer's local timezone after mount. An ESLint rule enforces this; the primitive file is the only exemption.

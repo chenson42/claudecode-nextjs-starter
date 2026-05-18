@@ -19,6 +19,26 @@ const config = [
       "next-env.d.ts",
     ],
   },
+  // Ban toLocale* everywhere — use <FormattedDate> from
+  // src/components/shared/formatted-date.tsx to avoid SSR timezone mismatches.
+  {
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.property.name=/^toLocale(String|DateString|TimeString)$/]",
+          message:
+            "Use <FormattedDate> from src/components/shared/formatted-date.tsx instead of toLocale*() to avoid SSR timezone mismatches.",
+        },
+      ],
+    },
+  },
+  // Exempt the primitive itself — it is the one place toLocale* is intentional.
+  {
+    files: ["src/components/shared/formatted-date.tsx"],
+    rules: { "no-restricted-syntax": "off" },
+  },
 ];
 
 export default config;

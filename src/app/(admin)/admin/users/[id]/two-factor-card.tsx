@@ -4,6 +4,7 @@ import { useTransition, useState } from "react";
 import { toast } from "sonner";
 import * as Dialog from "@radix-ui/react-dialog";
 import { setTwoFactorRequired, forceResetTwoFactor } from "./actions";
+import { FormattedDate } from "@/components/shared/formatted-date";
 
 interface TwoFactorCardProps {
   userId: string;
@@ -89,7 +90,7 @@ export function TwoFactorCard({
 
       {enrolled && enrolledAt && (
         <p className="mt-2 text-sm text-muted-foreground">
-          Enrolled on {new Date(enrolledAt).toLocaleDateString()}.{" "}
+          Enrolled on <FormattedDate value={enrolledAt} mode="date" />.{" "}
           {unusedRecoveryCodeCount} unused recovery code
           {unusedRecoveryCodeCount === 1 ? "" : "s"} remaining.
         </p>

@@ -4,6 +4,25 @@ Architectural and implementation decisions for the Claude Code Starter. Newest f
 
 ---
 
+## DECISION-007: `<FormattedDate>` lives in `src/components/shared/`, not `src/components/ui/`
+
+**Status:** Resolved
+**Date:** 2026-05-18
+
+**Decision:** The timezone-safe date primitive is placed at `src/components/shared/formatted-date.tsx`, not inside `src/components/ui/`. The ESLint guard banning `toLocale*` outside that file uses a `no-restricted-syntax` pattern in `eslint.config.mjs` with a targeted `files` override that exempts the primitive's own path. The SSR fallback rendered inside `<time dateTime={iso}>` is the date portion of the ISO string (`YYYY-MM-DD`), marked `suppressHydrationWarning`.
+
+**Rationale:**
+
+1. **Placement.** `src/components/ui/` is reserved for generated shadcn/Radix primitives — the project instructions say "auto-generated; don't hand-edit." `<FormattedDate>` is hand-authored, cross-cutting (used by both `(admin)` and `(account)` surfaces), and requires `'use client'`. It belongs in `src/components/shared/`, which CLAUDE.md defines as "cross-cutting components used by both surfaces." No new top-level directory is needed.
+
+2. **ESLint rule.** A `no-restricted-syntax` pattern in the existing `eslint.config.mjs` requires zero new dependencies and no plugin infrastructure. The pattern targets the `MemberExpression` where the property name matches `toLocaleString|toLocaleDateString|toLocaleTimeString`. A `files` override block in the same flat config exempts `src/components/shared/formatted-date.tsx`. This is the simplest mechanism consistent with the project's strong preference against new dependencies and custom infrastructure.
+
+3. **SSR fallback.** The ISO-8601 string from the database (e.g., `2026-05-18T14:32:00.000Z`) is available server-side. Rendering the date portion (`YYYY-MM-DD`, extracted with `.toISOString().slice(0, 10)` — not a locale call) inside `<time>` gives the SSR output a stable, unambiguous placeholder that is close in character length to most formatted results. On hydration the client replaces it with the viewer's local format. `suppressHydrationWarning` is set on the `<time>` element to prevent the React warning caused by the intentional mismatch. Rendering nothing (empty string) would cause a jarring layout shift; rendering the full ISO timestamp would be confusing to end users if JS were slow.
+
+**Impact:** Adds `src/components/shared/formatted-date.tsx`. Adds one `no-restricted-syntax` config block plus one `files` override to `eslint.config.mjs`. No new npm packages. All five call sites in `(admin)` and `(account)` switch from direct `toLocale*` calls to `<FormattedDate>`. A new Key Invariant is added to `CLAUDE.md` and a one-liner is added to `.claude/agents/ux-developer.md`.
+
+---
+
 ## DECISION-006: Forgot-password flow uses a separate `(password-reset)` route group
 
 **Status:** Resolved

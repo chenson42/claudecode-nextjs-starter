@@ -15,6 +15,7 @@ import {
 import { regenerateRecoveryCodes } from "./actions";
 import { TotpEnrollForm } from "./totp-enroll-form";
 import { RegenerateCodesForm } from "./regenerate-codes-form";
+import { FormattedDate } from "@/components/shared/formatted-date";
 
 async function consumeFreshCodesCookie(): Promise<string[] | null> {
   const jar = await cookies();
@@ -55,9 +56,9 @@ export default async function AccountTwoFactorPage() {
         <h1 className="text-2xl font-semibold">Two-factor authentication</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           You enrolled on{" "}
-          {new Date(existing.enrolledAt).toLocaleDateString()}.
+          <FormattedDate value={existing.enrolledAt} mode="date" />.
           {existing.lastUsedAt && (
-            <> Last used: {new Date(existing.lastUsedAt).toLocaleString()}.</>
+            <> Last used: <FormattedDate value={existing.lastUsedAt} mode="datetime" />.</>
           )}
         </p>
 

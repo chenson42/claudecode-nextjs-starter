@@ -40,6 +40,7 @@ When the user rebrands, replace the accent in one place and let the rest of the 
 4. **One component per file.** Reusable pieces go to `src/components/`.
 5. **No native browser dialogs.** Never use `alert()`, `confirm()`, `prompt()`. Use shadcn `Dialog` (and its `AlertDialog` variant for destructive confirms).
 6. **Forms** use React 19 Actions where possible — `<form action={serverAction}>` with `useFormStatus()` for pending state.
+7. **Timezone-safe dates.** Never call `toLocale*()` directly. Use `<FormattedDate value={...} mode="date|datetime" />` from `src/components/shared/formatted-date.tsx`; the ESLint rule will catch violations.
 
 ## Common Patterns
 

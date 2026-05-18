@@ -3,6 +3,7 @@ import { users, roles, userRoles } from "@/lib/db/schema";
 import { desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { assignRoleAction, removeRoleAction } from "./actions";
+import { FormattedDate } from "@/components/shared/formatted-date";
 
 const PAGE_SIZE = 25;
 
@@ -148,7 +149,7 @@ export default async function UsersPage({
                   </div>
                 </td>
                 <td className="text-xs text-muted-foreground">
-                  {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}
+                  {u.lastLoginAt ? <FormattedDate value={u.lastLoginAt} mode="datetime" /> : "—"}
                 </td>
                 <td>{u.isActive ? "yes" : "no"}</td>
                 <td>
