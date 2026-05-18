@@ -8,12 +8,17 @@
 // click a verification link in a fresh browser session.
 
 import { redirect } from "next/navigation";
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, emailVerificationTokens, auditEvents } from "@/lib/db/schema";
 import { AUDIT_ACTIONS } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
+
+function sha256Hex(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 interface Props {
   params: Promise<{ token: string }>;
@@ -22,8 +27,12 @@ interface Props {
 export default async function VerifyEmailPage({ params }: Props) {
   const { token } = await params;
 
+  // The URL carries the raw token; the DB stores only its SHA-256 hash.
+  // Hash the inbound value before lookup — a DB read cannot forge a link.
+  const tokenHash = sha256Hex(token);
+
   const tokenRow = await db.query.emailVerificationTokens.findFirst({
-    where: eq(emailVerificationTokens.token, token),
+    where: eq(emailVerificationTokens.token, tokenHash),
   });
 
   if (!tokenRow) {

@@ -114,11 +114,63 @@ describe("checkRateLimit — RATE_LIMIT_DISABLED escape hatch — regression for
 });
 
 // ---------------------------------------------------------------------------
-// getRequestIp
+// getRequestIp — M3 fix: TRUST_PROXY_HEADERS controls x-forwarded-for usage
+//
+// Default (TRUST_PROXY_HEADERS != "true"): only x-real-ip is read.
+//   - Clients cannot spoof x-real-ip on Vercel (edge sets it).
+//   - Returning null when x-real-ip is absent is safe — callers key on "unknown".
+//
+// When TRUST_PROXY_HEADERS=true: x-forwarded-for is read first, then x-real-ip.
+//   - Only enable on deployments behind a trusted, controlled proxy.
 // ---------------------------------------------------------------------------
 
-describe("getRequestIp", () => {
-  it("returns the first value of x-forwarded-for", () => {
+describe("getRequestIp — TRUST_PROXY_HEADERS=false (default)", () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    // Ensure TRUST_PROXY_HEADERS is not set (default false behavior)
+    vi.stubEnv("TRUST_PROXY_HEADERS", "false");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("ignores x-forwarded-for when TRUST_PROXY_HEADERS is false — regression for M3 IP-spoofing bypass", () => {
+    // An attacker can set X-Forwarded-For: any-ip to bypass per-IP rate limits
+    // when the server naively trusts this header. Verify it is ignored by default.
+    const hdrs = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
+    expect(getRequestIp(hdrs)).toBeNull();
+  });
+
+  it("reads x-real-ip when TRUST_PROXY_HEADERS is false (Vercel sets this at the edge)", () => {
+    const hdrs = new Headers({ "x-real-ip": "9.10.11.12" });
+    expect(getRequestIp(hdrs)).toBe("9.10.11.12");
+  });
+
+  it("reads x-real-ip even when x-forwarded-for is also present", () => {
+    const hdrs = new Headers({
+      "x-forwarded-for": "spoofed.attacker.ip",
+      "x-real-ip": "9.10.11.12",
+    });
+    expect(getRequestIp(hdrs)).toBe("9.10.11.12");
+  });
+
+  it("returns null when neither header is present", () => {
+    const hdrs = new Headers();
+    expect(getRequestIp(hdrs)).toBeNull();
+  });
+});
+
+describe("getRequestIp — TRUST_PROXY_HEADERS=true (trusted proxy deployment)", () => {
+  beforeEach(() => {
+    vi.stubEnv("TRUST_PROXY_HEADERS", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns the first value of x-forwarded-for when TRUST_PROXY_HEADERS is true", () => {
     const hdrs = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
     expect(getRequestIp(hdrs)).toBe("1.2.3.4");
   });

@@ -40,17 +40,36 @@ import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapte
 
 /**
  * Extracts the client IP from an incoming request's headers.
- * Preference order: x-forwarded-for first value → x-real-ip → null.
+ *
+ * Controlled by the TRUST_PROXY_HEADERS env var (default: false).
+ *
+ * When TRUST_PROXY_HEADERS=false (the default):
+ *   - Only x-real-ip is consulted. Vercel sets this header at the edge and
+ *     clients cannot spoof it. If x-real-ip is absent (local dev, non-Vercel),
+ *     returns null — callers key rate-limit buckets on "unknown" in that case.
+ *
+ * When TRUST_PROXY_HEADERS=true (set only when you control every hop in your
+ *   proxy chain):
+ *   - Reads the first value from x-forwarded-for (the original client IP as
+ *     appended by a trusted upstream proxy), then falls back to x-real-ip.
+ *   - WARNING: Never enable this unless the deployment platform replaces (not
+ *     appends) x-forwarded-for. An attacker can spoof this header on any
+ *     deployment without a trusted, controlled proxy.
  *
  * Pass the result of `await headers()` (from next/headers) or
  * `request.headers` (from the Credentials authorize callback).
  */
 export function getRequestIp(hdrs: ReadonlyHeaders | Headers): string | null {
-  const xff = hdrs.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0].trim();
-    if (first) return first;
+  const trustProxy = process.env.TRUST_PROXY_HEADERS === "true";
+
+  if (trustProxy) {
+    const xff = hdrs.get("x-forwarded-for");
+    if (xff) {
+      const first = xff.split(",")[0].trim();
+      if (first) return first;
+    }
   }
+
   const realIp = hdrs.get("x-real-ip");
   if (realIp) return realIp.trim();
   return null;

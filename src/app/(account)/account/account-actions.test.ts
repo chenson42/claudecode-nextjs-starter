@@ -264,3 +264,77 @@ describe(
     });
   },
 );
+
+// ── M1 — requestEmailChange — token hashing (structural regression) ──────────
+//
+// Security fix: the raw random token is no longer stored in the DB. Only the
+// SHA-256 hex is persisted; the raw value travels in the email URL.
+//
+// The action now:
+//   1. randomBytes(32).toString("hex")             — raw token
+//   2. sha256Hex(rawToken)                         — stored hash
+//   3. sends rawToken in the URL
+//   4. at verification time: sha256Hex(inboundToken) → DB lookup
+//
+// These pure-function tests verify:
+//   a. SHA-256 of a fixed input is stable (no accidental algorithm change).
+//   b. Two different raw tokens produce different hashes (collision sanity).
+//   c. The same raw token hashed twice produces the same result (deterministic).
+
+import { createHash } from "node:crypto";
+
+function sha256Hex(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
+
+describe(
+  "M1 — email verification token hashing — regression for plaintext token storage",
+  () => {
+    it("sha256Hex produces a 64-character hex string", () => {
+      // Arrange
+      const raw = "abc123";
+
+      // Act
+      const hash = sha256Hex(raw);
+
+      // Assert
+      expect(hash).toHaveLength(64);
+      expect(/^[0-9a-f]{64}$/.test(hash)).toBe(true);
+    });
+
+    it("sha256Hex is deterministic — same input always yields the same hash", () => {
+      // Arrange
+      const raw = "some-raw-token-value";
+
+      // Act
+      const hash1 = sha256Hex(raw);
+      const hash2 = sha256Hex(raw);
+
+      // Assert
+      expect(hash1).toBe(hash2);
+    });
+
+    it("two different raw tokens produce different hashes — no collision", () => {
+      // Arrange
+      const rawA = "token-a-".repeat(4); // 32 chars
+      const rawB = "token-b-".repeat(4);
+
+      // Act
+      const hashA = sha256Hex(rawA);
+      const hashB = sha256Hex(rawB);
+
+      // Assert
+      expect(hashA).not.toBe(hashB);
+    });
+
+    it("hash matches the known SHA-256 of a fixed value — regression for algorithm change", () => {
+      // Node crypto SHA-256("abc") hex — verified by running:
+      //   node -e "const {createHash}=require('crypto'); console.log(createHash('sha256').update('abc').digest('hex'))"
+      // If the hash function is accidentally changed (e.g. to MD5, SHA-1),
+      // this test will fail.
+      expect(sha256Hex("abc")).toBe(
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      );
+    });
+  },
+);

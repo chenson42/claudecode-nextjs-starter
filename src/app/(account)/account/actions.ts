@@ -1,6 +1,6 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { eq, and, ne } from "drizzle-orm";
 import { compare, hash } from "bcryptjs";
@@ -11,6 +11,10 @@ import { AUDIT_ACTIONS } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "@/types/actions";
+
+function sha256Hex(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 // ---------------------------------------------------------------------------
 // updateProfile
@@ -116,7 +120,11 @@ export async function requestEmailChange(input: {
     return { ok: false, error: "That email is already pending verification on another account." };
   }
 
-  const token = randomBytes(32).toString("hex");
+  // Generate a CSPRNG raw token — this is what travels in the email URL.
+  // Only the SHA-256 hash is stored; a DB read cannot be used to forge a link.
+  // Mirrors the identical pattern used by passwordResetTokens.
+  const rawToken = randomBytes(32).toString("hex");
+  const tokenHash = sha256Hex(rawToken);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 h
 
   // Upsert — one pending change per user (uniqueIndex on userId)
@@ -124,18 +132,18 @@ export async function requestEmailChange(input: {
     .insert(emailVerificationTokens)
     .values({
       userId: session.user.id,
-      token,
+      token: tokenHash,
       newEmail,
       expiresAt,
     })
     .onConflictDoUpdate({
       target: emailVerificationTokens.userId,
-      set: { token, newEmail, expiresAt, createdAt: new Date() },
+      set: { token: tokenHash, newEmail, expiresAt, createdAt: new Date() },
     });
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const verifyUrl = `${baseUrl}/account/verify-email/${token}`;
+  const verifyUrl = `${baseUrl}/account/verify-email/${rawToken}`;
 
   await sendEmail({
     to: newEmail,

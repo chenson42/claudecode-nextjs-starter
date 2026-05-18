@@ -15,12 +15,22 @@ import {
   normalizeRecoveryCode,
   verifyToken,
 } from "@/lib/two-factor";
+import { AUDIT_ACTIONS } from "@/lib/audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 function totpRedirectUrl(callbackUrl: string, error?: "invalid" | "rate_limited"): string {
   const params = new URLSearchParams({ callbackUrl });
   if (error) params.set("error", error);
   return `/totp?${params.toString()}`;
+}
+
+/**
+ * Validates that a callbackUrl is a safe same-origin relative path.
+ * Rejects protocol-relative URLs (starting with "//") and any absolute URL.
+ * Defaults to /admin if the value is absent or invalid.
+ */
+function sanitizeCallbackUrl(raw: string): string {
+  return raw.startsWith("/") && !raw.startsWith("//") ? raw : "/admin";
 }
 
 async function logAttempt(
@@ -44,12 +54,14 @@ export async function verifyTotpAction(formData: FormData) {
   if (!session?.user) redirect("/signin");
 
   const rawInput = String(formData.get("token") ?? "");
-  const callbackUrl = String(formData.get("callbackUrl") ?? "/admin");
+  const callbackUrl = sanitizeCallbackUrl(
+    String(formData.get("callbackUrl") ?? "/admin"),
+  );
 
   const enrollment = await db.query.userTotp.findFirst({
     where: eq(userTotp.userId, session.user.id),
   });
-  if (!enrollment) redirect("/admin/2fa");
+  if (!enrollment) redirect("/account/2fa");
 
   // Rate limit: 10/min by userId.
   // Rejection travels via redirect query param because this action always uses
@@ -73,14 +85,14 @@ export async function verifyTotpAction(formData: FormData) {
   if (isSixDigit) {
     const ok = verifyToken(trimmed, decryptSecret(enrollment.secretCiphertext));
     if (!ok) {
-      await logAttempt(session.user.id, session.user.email, "totp.verify_failed");
+      await logAttempt(session.user.id, session.user.email, AUDIT_ACTIONS.TOTP_VERIFY_FAILED);
       redirect(totpRedirectUrl(callbackUrl, "invalid"));
     }
     await db
       .update(userTotp)
       .set({ lastUsedAt: new Date() })
       .where(eq(userTotp.userId, session.user.id));
-    await logAttempt(session.user.id, session.user.email, "totp.verify_succeeded");
+    await logAttempt(session.user.id, session.user.email, AUDIT_ACTIONS.TOTP_VERIFY_SUCCEEDED);
     await unstable_update({ user: { twoFactorVerified: true } });
     redirect(callbackUrl);
   }
@@ -88,7 +100,7 @@ export async function verifyTotpAction(formData: FormData) {
   // Try as recovery code.
   const normalized = normalizeRecoveryCode(trimmed);
   if (!normalized) {
-    await logAttempt(session.user.id, session.user.email, "totp.verify_failed", {
+    await logAttempt(session.user.id, session.user.email, AUDIT_ACTIONS.TOTP_VERIFY_FAILED, {
       reason: "malformed_input",
     });
     redirect(totpRedirectUrl(callbackUrl, "invalid"));
@@ -102,14 +114,14 @@ export async function verifyTotpAction(formData: FormData) {
     ),
   });
   if (!match) {
-    await logAttempt(session.user.id, session.user.email, "totp.recovery_failed");
+    await logAttempt(session.user.id, session.user.email, AUDIT_ACTIONS.TOTP_RECOVERY_FAILED);
     redirect(totpRedirectUrl(callbackUrl, "invalid"));
   }
   await db
     .update(userTotpRecoveryCodes)
     .set({ usedAt: new Date() })
     .where(eq(userTotpRecoveryCodes.id, match.id));
-  await logAttempt(session.user.id, session.user.email, "totp.recovery_succeeded", {
+  await logAttempt(session.user.id, session.user.email, AUDIT_ACTIONS.TOTP_RECOVERY_SUCCEEDED, {
     codeId: match.id,
   });
   await unstable_update({ user: { twoFactorVerified: true } });

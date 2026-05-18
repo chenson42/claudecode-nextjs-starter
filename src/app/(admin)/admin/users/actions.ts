@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { auth, unstable_update } from "@/auth";
 import { db } from "@/lib/db";
-import { roles, userRoles, auditEvents } from "@/lib/db/schema";
-import { ADMIN_ROLE } from "@/lib/permissions";
+import { roles, users, userRoles, auditEvents } from "@/lib/db/schema";
+import { ADMIN_ROLE, FEATURES, hasFeature } from "@/lib/permissions";
 import { AUDIT_ACTIONS } from "@/lib/audit";
 
 async function requireAdmin() {
@@ -75,4 +75,90 @@ export async function removeRoleAction(formData: FormData) {
 
   await refreshSelfIfNeeded(session.user.id, userId);
   revalidatePath("/admin/users");
+}
+
+// ---------------------------------------------------------------------------
+// deactivateUser / reactivateUser
+//
+// Gate: admin.users feature (not just admin role) so the permission model
+// is consistent with the rest of the user-management surface.
+// Self-deactivation is blocked for deactivateUser; admins can reactivate any
+// user including themselves if somehow they were deactivated by another admin.
+// ---------------------------------------------------------------------------
+
+async function requireAdminUsers() {
+  const session = await auth();
+  if (!session?.user || !hasFeature(session.user.features, FEATURES.ADMIN_USERS)) {
+    return null;
+  }
+  return session;
+}
+
+export async function deactivateUser(input: {
+  userId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await requireAdminUsers();
+  if (!session) return { ok: false, error: "Forbidden." };
+
+  // Self-deactivation block — an admin cannot lock themselves out.
+  if (session.user.id === input.userId) {
+    return { ok: false, error: "You cannot deactivate your own account." };
+  }
+
+  const target = await db.query.users.findFirst({
+    where: eq(users.id, input.userId),
+    columns: { id: true, isActive: true },
+  });
+  if (!target) return { ok: false, error: "User not found." };
+  if (!target.isActive) return { ok: false, error: "User is already inactive." };
+
+  await db
+    .update(users)
+    .set({ isActive: false })
+    .where(eq(users.id, input.userId));
+
+  await db.insert(auditEvents).values({
+    actorUserId: session.user.id,
+    actorEmail: session.user.email,
+    action: AUDIT_ACTIONS.USER_DEACTIVATED,
+    resourceType: "user",
+    resourceId: input.userId,
+    metadata: {},
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${input.userId}`);
+  return { ok: true };
+}
+
+export async function reactivateUser(input: {
+  userId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await requireAdminUsers();
+  if (!session) return { ok: false, error: "Forbidden." };
+
+  const target = await db.query.users.findFirst({
+    where: eq(users.id, input.userId),
+    columns: { id: true, isActive: true },
+  });
+  if (!target) return { ok: false, error: "User not found." };
+  if (target.isActive) return { ok: false, error: "User is already active." };
+
+  await db
+    .update(users)
+    .set({ isActive: true })
+    .where(eq(users.id, input.userId));
+
+  await db.insert(auditEvents).values({
+    actorUserId: session.user.id,
+    actorEmail: session.user.email,
+    action: AUDIT_ACTIONS.USER_REACTIVATED,
+    resourceType: "user",
+    resourceId: input.userId,
+    metadata: {},
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${input.userId}`);
+  return { ok: true };
 }

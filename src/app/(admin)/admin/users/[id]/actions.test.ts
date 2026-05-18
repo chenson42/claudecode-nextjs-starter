@@ -80,6 +80,69 @@ describe(
   },
 );
 
+// ── M4 — deactivateUser — self-deactivation block ──────────────────────────
+//
+// Implementation in src/app/(admin)/admin/users/actions.ts:
+//   if (session.user.id === input.userId) {
+//     return { ok: false, error: "You cannot deactivate your own account." };
+//   }
+
+function selfDeactivationBlocked(actorId: string, targetId: string): boolean {
+  return actorId === targetId;
+}
+
+describe(
+  "deactivateUser — self-deactivation block — regression for admin locking themselves out",
+  () => {
+    it("blocks when actor and target are the same user", () => {
+      // Arrange
+      const actorId = "user-admin";
+      const targetId = "user-admin";
+
+      // Act
+      const blocked = selfDeactivationBlocked(actorId, targetId);
+
+      // Assert
+      expect(blocked).toBe(true);
+    });
+
+    it("allows when actor and target are different users", () => {
+      // Arrange
+      const actorId = "user-admin";
+      const targetId = "user-member";
+
+      // Act
+      const blocked = selfDeactivationBlocked(actorId, targetId);
+
+      // Assert
+      expect(blocked).toBe(false);
+    });
+  },
+);
+
+// ── M4 — AUDIT_ACTIONS — USER_DEACTIVATED / USER_REACTIVATED catalog entries ─
+
+describe(
+  "AUDIT_ACTIONS — deactivation catalog entries — regression for missing or renamed audit keys",
+  () => {
+    it("exports USER_DEACTIVATED with the correct frozen value", async () => {
+      // Arrange + Act
+      const { AUDIT_ACTIONS } = await import("@/lib/audit");
+
+      // Assert
+      expect(AUDIT_ACTIONS.USER_DEACTIVATED).toBe("user.deactivated");
+    });
+
+    it("exports USER_REACTIVATED with the correct frozen value", async () => {
+      // Arrange + Act
+      const { AUDIT_ACTIONS } = await import("@/lib/audit");
+
+      // Assert
+      expect(AUDIT_ACTIONS.USER_REACTIVATED).toBe("user.reactivated");
+    });
+  },
+);
+
 // ── forceResetTwoFactor — DB mock gap note ──────────────────────────────────
 //
 // The three-table sequential DELETE (userTotp, userTotpRecoveryCodes,

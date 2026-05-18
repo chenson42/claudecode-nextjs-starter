@@ -23,6 +23,14 @@ export const AUDIT_ACTIONS = {
   // Password-reset flow (unauthenticated; no current-password proof required)
   USER_PASSWORD_RESET_REQUESTED: "user.password_reset_requested",
   USER_PASSWORD_RESET_COMPLETED: "user.password_reset_completed",
+  // TOTP verification attempts (written from src/app/(auth)/totp/actions.ts)
+  TOTP_VERIFY_FAILED: "totp.verify_failed",
+  TOTP_VERIFY_SUCCEEDED: "totp.verify_succeeded",
+  TOTP_RECOVERY_FAILED: "totp.recovery_failed",
+  TOTP_RECOVERY_SUCCEEDED: "totp.recovery_succeeded",
+  // Admin user management
+  USER_DEACTIVATED: "user.deactivated",
+  USER_REACTIVATED: "user.reactivated",
   // Rate limiting — infrastructure event written from src/lib/rate-limit.ts.
   // The check:audit script scans only src/app/**/actions.ts; it will not see
   // this write. That is correct — do not add audit-exempt annotations to actions.ts.

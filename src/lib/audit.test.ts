@@ -25,6 +25,14 @@ const EXPECTED_ENTRIES: Record<keyof typeof AUDIT_ACTIONS, string> = {
   // Password-reset flow (unauthenticated)
   USER_PASSWORD_RESET_REQUESTED: "user.password_reset_requested",
   USER_PASSWORD_RESET_COMPLETED: "user.password_reset_completed",
+  // TOTP verification attempts (src/app/(auth)/totp/actions.ts)
+  TOTP_VERIFY_FAILED: "totp.verify_failed",
+  TOTP_VERIFY_SUCCEEDED: "totp.verify_succeeded",
+  TOTP_RECOVERY_FAILED: "totp.recovery_failed",
+  TOTP_RECOVERY_SUCCEEDED: "totp.recovery_succeeded",
+  // Admin user management (deactivate / reactivate)
+  USER_DEACTIVATED: "user.deactivated",
+  USER_REACTIVATED: "user.reactivated",
   // Rate limiting — written from src/lib/rate-limit.ts, not from actions.ts
   RATE_LIMIT_BLOCKED: "rate_limit.blocked",
 };

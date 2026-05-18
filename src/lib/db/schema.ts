@@ -233,7 +233,7 @@ export const emailVerificationTokens = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    token: text("token").notNull(), // crypto.randomBytes(32).toString("hex")
+    token: text("token").notNull(), // SHA-256 hex of crypto.randomBytes(32).toString("hex"); raw token travels in email URL
     newEmail: text("new_email").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })

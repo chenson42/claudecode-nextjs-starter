@@ -61,6 +61,19 @@ export async function proxy(req: NextRequest) {
       return NextResponse.next();
     }
   }
+
+  // INTENTIONAL FALL-THROUGH — auth-only, no feature gate required.
+  //
+  // Paths that reach here are authenticated (session checked above) but do not
+  // match any PROTECTION_RULES entry. This is the correct and deliberate
+  // behavior for the /account/* subtree (/account, /account/2fa, etc.) — any
+  // signed-in user may access their own account pages regardless of role.
+  //
+  // DO NOT add a catch-all PROTECTION_RULES entry that would accidentally
+  // swallow /account/* routes. If you add a new route family that needs its own
+  // access control, add an explicit rule to PROTECTION_RULES above.
+  //
+  // Auth-only routes (no feature gate): /account, /account/2fa
   return NextResponse.next();
 }
 

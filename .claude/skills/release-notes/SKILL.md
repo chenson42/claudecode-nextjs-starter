@@ -80,11 +80,23 @@ Add to the current minor-version file, newest first.
 
 ---
 
-## Step 4: Bump the Version
+## Step 4: Update CLAUDE.md
+
+Review `CLAUDE.md` for drift introduced by the release:
+
+- **"What This Starter Gives You"** — if the release adds any user-visible capability (a new page, a new auth flow, a new library, a new pattern like `ActionResult<T>`), add a bullet. Keep the existing tone: concise, one-line bullets, no internal implementation detail unless it's a concept a fork will copy.
+- **"Project Layout"** — if the release adds any route group or top-level directory under `src/app/`, add the corresponding line to the tree in the right alphabetical/logical position.
+- **"Common Commands"** — if the release adds any npm script that a developer or agent would need to invoke, add it to the command block.
+
+If none of these apply (e.g., a pure bug fix touching only internal logic with no new routes or patterns), skip with a one-line note: "CLAUDE.md: no user-visible surface changes."
+
+---
+
+## Step 5: Bump the Version
 
 **Only bump when the branch is being prepared to merge into `main`.** If work is still in progress on a feature branch, skip this step — all changes ship as a single version when the branch merges.
 
-**Documentation-only changes do not get a version bump.** If a PR only changes docs (no code), skip Step 4 entirely.
+**Documentation-only changes do not get a version bump.** If a PR only changes docs (no code), skip Step 5 entirely.
 
 **All code changes on a branch ship as a single version.** Combine the entries; don't create one per commit.
 

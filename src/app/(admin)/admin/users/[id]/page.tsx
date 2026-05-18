@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { users, userTotp, userTotpRecoveryCodes } from "@/lib/db/schema";
 import { FEATURES, hasFeature } from "@/lib/permissions";
 import { TwoFactorCard } from "./two-factor-card";
+import { DeactivateCard } from "./deactivate-card";
 
 export default async function UserDetailPage({
   params,
@@ -67,7 +68,12 @@ export default async function UserDetailPage({
         {user.isActive ? "Active" : "Inactive"}.
       </p>
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-6">
+        <DeactivateCard
+          userId={user.id}
+          isActive={user.isActive}
+          isSelf={session.user.id === user.id}
+        />
         <TwoFactorCard
           userId={user.id}
           twoFactorRequired={user.twoFactorRequired}

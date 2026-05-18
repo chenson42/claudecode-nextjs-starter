@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { isFlagEnabled } from "@/lib/flags";
 
 export default async function AdminDashboard() {
   const session = await auth();
+
+  // EXAMPLE: feature-flag gate. See CLAUDE.md → Permissions vs Flags.
+  // `isFlagEnabled` hits the feature_flags table and checks the `enabled`
+  // column. Flip "demo.new_dashboard" in /admin/flags to show or hide this
+  // banner without a redeploy. For per-user access control use hasFeature()
+  // instead.
+  const showDashboardPreview = await isFlagEnabled("demo.new_dashboard");
   const cards = [
     {
       href: "/admin/users",
@@ -28,6 +36,16 @@ export default async function AdminDashboard() {
 
   return (
     <div>
+      {showDashboardPreview && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+          <span className="font-medium">New dashboard preview is enabled.</span>{" "}
+          Toggle the <code>demo.new_dashboard</code> flag in{" "}
+          <Link href="/admin/flags" className="underline">
+            Feature flags
+          </Link>{" "}
+          to hide this banner.
+        </div>
+      )}
       <h1 className="text-2xl font-semibold">Welcome, {session?.user?.name ?? "admin"}.</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Roles: {session?.user?.roles?.join(", ") || "—"}

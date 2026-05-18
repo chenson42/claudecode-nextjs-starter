@@ -23,6 +23,10 @@ Out of the box, a fork ships with:
 - **Release notes viewer** — Admin docs page renders versioned release notes from `docs/release-notes/vX.Y.md`.
 - **Route protection** — `src/proxy.ts` enforces the auth + 2FA gate at the edge (Next 16's `proxy.ts` convention, which replaces the deprecated `middleware.ts`).
 - **Seed script** — `scripts/seed.ts` creates admin and member roles, seeds every feature in `FEATURE_CATALOG`, and registers a demo feature flag.
+- **Self-serve account page** — `/account` lets signed-in users update their display name, change their email (triggers re-verification), change their password, manage per-user TOTP at `/account/2fa`, and reach a delete-account skeleton.
+- **Forgot-password flow** — `/forgot-password` accepts an email and sends a reset link; `/reset-password` accepts the token and sets a new password.
+- **Toast notifications** — Sonner `<Toaster>` is mounted in the root layout. Server actions return `ActionResult<T>` (from `src/types/actions.ts`); components call `toast.success()` / `toast.error()` on the result.
+- **Rate limiting** — `src/lib/rate-limit.ts` provides in-memory sliding-window limiting for server actions; swap in Upstash Redis for multi-instance deployments by setting `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.
 
 ## How Claude Should Behave in This Repo
 
@@ -56,9 +60,14 @@ If you've forked this starter and run Claude Code with the default permission pr
 ```
 src/
 ├── app/
-│   ├── (auth)/signin/       — Sign-in (Google OAuth)
-│   ├── (auth)/totp/         — TOTP enrolment + verification
-│   ├── (admin)/admin/       — Admin shell (users, flags, docs, 2fa subpages)
+│   ├── (account)/account/          — Self-serve account page (profile, email, password, delete)
+│   │   └── 2fa/                    — Per-user TOTP enrollment + management
+│   ├── (admin)/admin/              — Admin shell (users, flags, docs, 2fa subpages)
+│   ├── (auth)/signin/              — Sign-in (Google OAuth)
+│   ├── (auth)/totp/                — TOTP enrolment + verification
+│   ├── (email-verify)/account/verify-email/[token]/  — Email-change verification landing
+│   ├── (password-reset)/forgot-password/             — Request a password-reset link
+│   ├── (password-reset)/reset-password/              — Consume token + set new password
 │   ├── access-pending/      — Landing for authenticated users with no roles
 │   ├── api/                 — Route handlers (auth callbacks, admin APIs)
 │   ├── page.tsx             — Public landing page
@@ -139,7 +148,7 @@ A loop-back from any later phase returns to the **earliest** phase where the fai
 ### Phase 1 — Functional Refinement (analyst)
 
 **Trigger:** New feature request or bug report.
-**Output:** Four-pass review (user verbs, flow audit, permissions/flags, gaps).
+**Output:** Five-pass review (user verbs, flow audit, permissions/flags, gaps, adversarial pass).
 **Gate:** Verdict must be `READY FOR DESIGN` or `READY WITH NOTES`.
 **Loop-back:** `NEEDS REWORK` or `NOT YET` returns to the user. Pipeline pauses.
 
@@ -169,7 +178,7 @@ A loop-back from any later phase returns to the **earliest** phase where the fai
 | React components, pages, forms | **ux-developer** |
 | Spans server + client and is small | **full-stack-developer** |
 
-**Gate:** Typecheck passes. The build passes. No native browser dialogs. No `console.log` left in production paths. All invariants honored. Audit events written for security-sensitive mutations.
+**Gate:** Typecheck passes. The build passes. `npm run check:audit` reports zero violations. No native browser dialogs. No `console.log` left in production paths. All invariants honored. Audit events written for security-sensitive mutations.
 **Loop-back:** Design unbuildable returns to Phase 3. Architectural problem discovered returns to Phase 2.
 
 ### Phase 5 — Test Verification (qa)
@@ -278,7 +287,9 @@ npm run test:watch   # Vitest in watch mode
 npm run test:e2e     # Playwright end-to-end tests (needs the dev server running)
 npm run db:push      # Sync Drizzle schema to the live database (lossy — dev only)
 npm run db:generate  # Generate a versioned SQL migration in drizzle/ (use this once you have data you care about)
+npm run db:migrate   # Apply committed SQL migrations (production-safe; use instead of db:push in staging/prod)
 npm run db:seed      # Seed roles, features, and the demo flag
+npm run check:audit  # Tripwire: every mutation in actions.ts files must reference an AUDIT_ACTIONS key
 npm run deck         # Render deck/slides.md → slides.pptx + slides.pdf
 npm run deck:pptx    # PowerPoint only
 npm run deck:pdf     # PDF only
