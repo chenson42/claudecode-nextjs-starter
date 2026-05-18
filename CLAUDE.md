@@ -2,7 +2,7 @@
 
 Guidance for Claude Code when working in the **Claude Code Starter**.
 
-**Sections:** [Project Overview](#project-overview) · [What This Starter Gives You](#what-this-starter-gives-you) · [How This User Works](#how-this-user-works) · [Stack](#stack) · [Project Layout](#project-layout) · [Agent Roster](#agent-roster) · [Development Pipeline](#development-pipeline) · [Periodic Reviews](#periodic-reviews) · [Document Naming](#document-naming) · [Workflow Rules](#workflow-rules) · [Common Commands](#common-commands) · [Key Invariants](#key-invariants)
+**Sections:** [Project Overview](#project-overview) · [What This Starter Gives You](#what-this-starter-gives-you) · [How This User Works](#how-this-user-works) · [Stack](#stack) · [Project Layout](#project-layout) · [Agent Roster](#agent-roster) · [Development Pipeline](#development-pipeline) · [Periodic Reviews](#periodic-reviews) · [Document Naming](#document-naming) · [Workflow Rules](#workflow-rules) · [Commit Message Standards](#commit-message-standards) · [Common Commands](#common-commands) · [Key Invariants](#key-invariants)
 
 ## Project Overview
 
@@ -28,6 +28,7 @@ Out of the box, a fork ships with:
 - **Toast notifications** — Sonner `<Toaster>` is mounted in the root layout. Server actions return `ActionResult<T>` (from `src/types/actions.ts`); components call `toast.success()` / `toast.error()` on the result.
 - **Rate limiting** — `src/lib/rate-limit.ts` provides in-memory sliding-window limiting for server actions; swap in Upstash Redis for multi-instance deployments by setting `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.
 - **Timezone-safe date rendering** — `<FormattedDate>` from `src/components/shared/formatted-date.tsx` renders any timestamp in the *viewer's* TZ; never call `toLocale*()` directly (an ESLint rule enforces this).
+- **Commit-message standards** — Conventional-Commits prefix + mandatory `Caught-By` / `Discovered-In` trailers on `fix:` commits, enforced by a git hook installed via `npm install`. `npm run stats:escape` gives the weekly retrospective a 30-day escape-rate breakdown.
 
 ## How Claude Should Behave in This Repo
 
@@ -279,6 +280,29 @@ Slugs are short, lowercase, hyphenated, and stable. Don't rename them after the 
 6. **Permissions and flags stay separate.** Per-user permission → `FEATURES` + `hasFeature()`. Per-environment toggle → `feature_flags` + `isFlagEnabled()`. A feature usually needs both.
 7. **Audit security-sensitive mutations.** Role changes, flag toggles, TOTP enrolment/reset, deactivations write to `audit_events`.
 
+## Commit Message Standards
+
+Every commit must follow this format on the first line:
+
+    <prefix>(<optional-scope>): <description (1–100 chars)>
+
+Allowed prefixes: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `style`, `perf`, `build`, `ci`.
+
+Merge commits (`Merge ...`), revert commits (`Revert ...`), and release commits (`Release ...`) are exempt from validation.
+
+**Bug-fix trailers.** Every `fix:` commit must include both trailers in the commit body (after a blank line):
+
+    Caught-By: automated-test | agent-review | human-review | production
+    Discovered-In: Phase-1 | Phase-2 | Phase-3 | Phase-4 | Phase-5 | Phase-6 | post-merge | production
+
+`Caught-By` classification rule: if CI would have caught the bug without any agent judgment, use `automated-test`. If an agent had to decide to run a non-mandatory check, use `agent-review`.
+
+**Mixed-commit rule.** One commit, one prefix. A commit that adds a feature and also fixes a bug must be split into two separate commits. The validator accepts only one prefix per subject line; there is no compound prefix.
+
+**Hook bypass.** Never use `git commit --no-verify`. If the hook rejects a valid commit, fix the hook, not the bypass. The `npm run stats:escape` report shows a "Missing trailers (bypass)" count — this number should be zero in every retrospective.
+
+**Running the stats.** `npm run stats:escape` prints a 30-day escape-rate breakdown. The tech-lead runs this at the start of each weekly retrospective and copies the output into the retrospective work-log section.
+
 ## Common Commands
 
 ```bash
@@ -295,6 +319,7 @@ npm run db:generate  # Generate a versioned SQL migration in drizzle/ (use this 
 npm run db:migrate   # Apply committed SQL migrations (production-safe; use instead of db:push in staging/prod)
 npm run db:seed      # Seed roles, features, and the demo flag
 npm run check:audit  # Tripwire: every mutation in actions.ts files must reference an AUDIT_ACTIONS key
+npm run stats:escape # 30-day escape-rate report (per-channel fix breakdown for the weekly retrospective)
 npm run deck         # Render deck/slides.md → slides.pptx + slides.pdf
 npm run deck:pptx    # PowerPoint only
 npm run deck:pdf     # PDF only

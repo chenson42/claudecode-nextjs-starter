@@ -4,6 +4,25 @@ Architectural and implementation decisions for the Claude Code Starter. Newest f
 
 ---
 
+## DECISION-010: Commit-message standard — hook delivery, script placement, grandfather cutoff, MTTR scope
+
+**Status:** Resolved
+**Date:** 2026-05-18
+
+Four sub-decisions bundled because they are interdependent:
+
+1. **Hook delivery:** `scripts/install-hooks.sh` invoked via the `prepare` npm lifecycle script — no new dependency. The starter's strong preference against unnecessary packages rules out `husky` when a 10-line shell script achieves the same result. `prepare` runs on `npm install`, giving forks automatic installation on clone. The shell script is committed to `scripts/` and symlinks (or copies) the hook into `.git/hooks/commit-msg`.
+
+2. **Hook validator placement:** `scripts/commit-msg.mjs` — a Node ESM script matching the `check-audit-coverage.mjs` precedent already in `scripts/`. This allows the validator and `stats:escape` to share a common message-parsing helper in the same file or a co-located `scripts/commit-msg-parse.mjs`. Inline shell validation is rejected: regex in bash is brittle and the error-message requirements (name the specific missing field) are easier to satisfy in Node.
+
+3. **`stats:escape` output:** stdout only. `scripts/stats-escape.mjs` prints to stdout; the tech-lead pipes it into the work-log manually. A file output (`docs/reviews/stats-escape-latest.md`) would need cleanup logic, a gitignore entry, or a commit every retrospective. Stdout is simpler and consistent with `check-audit-coverage.mjs`.
+
+4. **Grandfather cutoff:** the date the feature ships (2026-05-18). No grace period. The cutoff is printed in the output header on every `stats:escape` run so the first retrospective number is honest. **MTTR deferred** to a follow-up work-log. No `Fixes-Bug:` trailer in this iteration; the escape-rate breakdown is the deliverable.
+
+**Impact:** Adds `scripts/commit-msg.mjs`, `scripts/install-hooks.sh`, `scripts/stats-escape.mjs`. Adds `prepare` entry to `package.json`. Adds "Commit Message Standards" section to `CLAUDE.md`. Adds a cross-link to `.claude/agents/tech-lead.md`. Updates per-phase status in work-log.
+
+---
+
 ## DECISION-009: Upstream-sync canonical URL — hardcoded in skill, not read from package.json
 
 **Status:** Resolved
