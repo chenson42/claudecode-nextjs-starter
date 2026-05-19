@@ -19,6 +19,23 @@ When the user invokes `/upstream-sync`, surface which commits have landed on the
 
 ---
 
+## Known Untested Paths (read this first)
+
+This skill was developed inside the canonical starter, where the Pre-flight short-circuits to `skip — N/A in canonical starter` without exercising any of the real work. That means everything below the short-circuit has been verified *structurally* (the algorithm reads right, the failure modes write nothing, the JSON shape is correct) but never *functionally* against a live fork ↔ upstream pair.
+
+The following paths have NOT been run against real data:
+
+- The `gh api repos/<owner>/<repo>/commits` call and the per-SHA `files[]` follow-up call.
+- The `git fetch <upstream>` fallback when `gh` is unavailable.
+- The classification heuristic on real upstream commit subjects + paths.
+- The markdown punch-list rendering against real data.
+- The state-file update on a non-empty run.
+- The conflict-flagging against `personalizedPaths`.
+
+**If you are the first fork-owner running this skill: you are the first real test.** If something fails or produces obviously wrong output, please open an issue at `github.com/chenson42/claudecode` so future forks benefit from the fix. The honest version of this skill's status is "designed carefully, verified structurally, ready for first contact."
+
+---
+
 ## Pre-flight Checks
 
 Run all three checks before doing any work. Exit cleanly on any failure — do NOT write a log entry for a failed run.

@@ -515,3 +515,17 @@ The lint error at `e2e/timezone-safe-dates.spec.ts:100` (`toLocaleString` in `pa
 - **Follow-up (deferred items).** If a fork-owner acts on only some of a run's punch-list and the rest are skipped, the next run will not resurface the unaddressed items (state file advances past them). A `deferredItems` array in `.claude/upstream-state.json` would fix this. Track as a future improvement to the upstream-sync skill.
 - **Follow-up (SSH remote).** The canonical-repo skip compares after stripping `.git` from the URL, but an `ssh` remote (`git@github.com:chenson42/claudecode.git`) would not match and the skip would not fire in the canonical repo if the user happens to have an ssh remote. Low priority (the starter ships with `https` by default), but worth noting for a future SKILL.md revision.
 - **Lint.** `e2e/timezone-safe-dates.spec.ts:100` — follow-up for the timezone work-log, not this one.
+
+---
+
+## Post-Ship Note — 2026-05-19
+
+Surfaced the day after SHIP IT: this skill cannot be functionally tested inside the canonical starter, because its Pre-flight check short-circuits before any of the real work runs. Phase 5 verified the short-circuit, the failure modes, the JSON state-file shape, and the classification heuristic on paper — but the happy path (live `gh api` call, classification on real commits, punch-list rendering, state-file update) has never executed against real data.
+
+Four options were considered (manual one-shot test, `--simulate` mode for automated coverage, throwaway test fork, accept-and-document). Chose option 4: **accept the gap, ship the skill as-is, fix at first-fork contact.**
+
+Rationale: the skill is one-shot infrastructure for a future fork-owner who doesn't exist yet. Building test infrastructure to exercise the happy path locally would be ~2-3 hours of work for coverage that gets exercised once (the first time someone forks). The honest fix is to set expectations in `SKILL.md` so the first fork-owner knows they're the first real test, and to invite issue reports back to the canonical starter.
+
+Action taken: added a "Known Untested Paths (read this first)" section to `.claude/skills/upstream-sync/SKILL.md` between "When to Invoke" and "Pre-flight Checks." Enumerates the six untested paths and explicitly names the first fork-owner as the first real test.
+
+This work-log stays SHIP IT — the verdict was honest about structural verification — but the post-ship note above is the missing piece of intent transparency.
