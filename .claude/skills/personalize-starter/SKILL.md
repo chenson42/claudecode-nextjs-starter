@@ -14,7 +14,7 @@ When the user invokes `/personalize-starter`, walk them through turning this fre
 ## Step 0: Confirm preconditions
 
 - Run `git status` — if the working tree has uncommitted changes that aren't from a fresh clone, **stop** and ask whether to commit / stash first. This skill makes a large diff; mixing it with unrelated work makes review impossible.
-- Confirm this is a real fork (not a session inside the canonical `chenson42/claudecode` repo). Look at `package.json` `name`: if it's still `claudecode-starter`, that's the signal. If it's already been personalized, ask whether to re-run.
+- Confirm this is a real fork (not a session inside the canonical `chenson42/claudecode-nextjs-starter` repo). Look at `package.json` `name`: if it's still `claudecode-nextjs-starter`, that's the signal. If it's already been personalized, ask whether to re-run.
 
 ---
 
@@ -95,7 +95,7 @@ For templates (when "Skip / draft later"), include the prompts above as `<!-- TO
 
 Apply find-replace and structured edits across:
 
-**Identity strings — replace "Claude Code Starter" / "claudecode-starter" with the new name / slug:**
+**Identity strings — replace "Claude Code Starter" / "claudecode-nextjs-starter" with the new name / slug:**
 
 - `package.json` — `name`, `description`
 - `src/app/layout.tsx` — `metadata.title`, `metadata.description`
@@ -172,7 +172,7 @@ After all find-replaces are complete, write `.claude/upstream-state.json` so the
 
 ```json
 {
-  "upstreamUrl": "https://github.com/chenson42/claudecode",
+  "upstreamUrl": "https://github.com/chenson42/claudecode-nextjs-starter",
   "forkPointSha": "",
   "lastSyncedSha": "",
   "lastSyncedDate": "<today YYYY-MM-DD>",

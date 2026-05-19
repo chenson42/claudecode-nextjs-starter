@@ -4,7 +4,7 @@ theme: default
 paginate: true
 class: lead
 header: "Working with Claude Code"
-footer: "github.com/chenson42/claudecode"
+footer: "github.com/chenson42/claudecode-nextjs-starter"
 style: |
   section {
     font-size: 26px;
@@ -672,7 +672,7 @@ What you got from this starter and this deck:
 
 ## Where to go next
 
-1. **Fork the starter** — `gh repo clone chenson42/claudecode my-new-app`
+1. **Fork the starter** — `gh repo clone chenson42/claudecode-nextjs-starter my-new-app`
 2. **Set up `.env.local`** from `.env.example`
 3. **Run `npm run db:push && npm run db:seed`** to spin up your database
 4. **Sign in once** — your email lands in the seeded admin role
@@ -684,6 +684,6 @@ What you got from this starter and this deck:
 
 Find me at **chenson42@gmail.com**.
 
-Source: **github.com/chenson42/claudecode**
+Source: **github.com/chenson42/claudecode-nextjs-starter**
 Slides source: `deck/slides.md`
 Rendered PDF: `deck/slides.pdf` (downloadable from GitHub)

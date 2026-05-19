@@ -7,7 +7,7 @@ description: Review upstream starter commits since your fork point and produce a
 
 When the user invokes `/upstream-sync`, surface which commits have landed on the upstream starter's `main` branch since your last sync, classify each one, and log the result. This skill never applies commits — it produces a punch-list the fork-owner reviews before doing any `git` operation.
 
-**This skill is fork-only.** If run inside the canonical `chenson42/claudecode` repo it detects that automatically and exits without writing anything.
+**This skill is fork-only.** If run inside the canonical `chenson42/claudecode-nextjs-starter` repo it detects that automatically and exits without writing anything.
 
 ---
 
@@ -32,7 +32,7 @@ The following paths have NOT been run against real data:
 - The state-file update on a non-empty run.
 - The conflict-flagging against `personalizedPaths`.
 
-**If you are the first fork-owner running this skill: you are the first real test.** If something fails or produces obviously wrong output, please open an issue at `github.com/chenson42/claudecode` so future forks benefit from the fix. The honest version of this skill's status is "designed carefully, verified structurally, ready for first contact."
+**If you are the first fork-owner running this skill: you are the first real test.** If something fails or produces obviously wrong output, please open an issue at `github.com/chenson42/claudecode-nextjs-starter` so future forks benefit from the fix. The honest version of this skill's status is "designed carefully, verified structurally, ready for first contact."
 
 ---
 
@@ -49,7 +49,7 @@ git remote get-url origin 2>/dev/null
 Strip a trailing `.git` from the result. Compare to the constant:
 
 ```
-CANONICAL_URL = "https://github.com/chenson42/claudecode"
+CANONICAL_URL = "https://github.com/chenson42/claudecode-nextjs-starter"
 ```
 
 If the two match, print:
@@ -99,7 +99,7 @@ Print:
 
 **Determine upstreamUrl:**
 
-- `MODE=gh`: use `CANONICAL_URL` (`https://github.com/chenson42/claudecode`). Confirm with the user before proceeding.
+- `MODE=gh`: use `CANONICAL_URL` (`https://github.com/chenson42/claudecode-nextjs-starter`). Confirm with the user before proceeding.
 - `MODE=git`: run `git remote get-url upstream` to get the URL.
 - Vendored fork (no remote, no gh): ask the user to supply the upstream URL manually. If they cannot, go to **Failure mode B**.
 
@@ -119,7 +119,7 @@ git merge-base HEAD upstream/main
 Use the result as `forkPointSha`. If `MODE=gh` and the upstream remote is not configured locally, ask the user to supply the SHA. The most recent upstream SHA visible in `git log --oneline -1` of the starter at the time of forking is also acceptable — look it up with:
 
 ```bash
-gh api repos/chenson42/claudecode/commits/main --jq '.sha'
+gh api repos/chenson42/claudecode-nextjs-starter/commits/main --jq '.sha'
 ```
 
 Set:
@@ -149,7 +149,7 @@ Use the baseline: the `lastSyncedSha` from the state file (or `forkPointSha` if 
 Fetch the commit list:
 
 ```bash
-gh api "repos/chenson42/claudecode/commits" \
+gh api "repos/chenson42/claudecode-nextjs-starter/commits" \
   --paginate \
   -X GET \
   -f sha=main \
@@ -160,7 +160,7 @@ gh api "repos/chenson42/claudecode/commits" \
 Then, for each commit SHA, fetch the file list (the `/commits` list endpoint does not include files inline):
 
 ```bash
-gh api "repos/chenson42/claudecode/commits/<sha>" \
+gh api "repos/chenson42/claudecode-nextjs-starter/commits/<sha>" \
   --jq '[.files[]?.filename]'
 ```
 
@@ -213,7 +213,7 @@ Output the punch-list as a Markdown table. Show it to the user before writing th
 ```markdown
 ## Upstream Sync Punch-list — YYYY-MM-DD
 Last synced through: `<lastSyncedSha short>` (YYYY-MM-DD)
-Upstream: https://github.com/chenson42/claudecode
+Upstream: https://github.com/chenson42/claudecode-nextjs-starter
 
 | # | SHA | Date | Subject | Classification | Conflict? | Files touched |
 |---|-----|------|---------|----------------|-----------|---------------|
@@ -266,7 +266,7 @@ YYYY-MM-DD | upstream-sync | nothing new since last sync
 **Mode A — No tooling available:**
 
 > `Cannot reach upstream. Install the GitHub CLI (gh) or run:`
-> `  git remote add upstream https://github.com/chenson42/claudecode`
+> `  git remote add upstream https://github.com/chenson42/claudecode-nextjs-starter`
 > `Then retry /upstream-sync.`
 
 **Mode B — Vendored fork, user cannot supply URL:**
@@ -290,7 +290,7 @@ YYYY-MM-DD | upstream-sync | nothing new since last sync
 
 ```json
 {
-  "upstreamUrl": "https://github.com/chenson42/claudecode",
+  "upstreamUrl": "https://github.com/chenson42/claudecode-nextjs-starter",
   "forkPointSha": "<40-char SHA of the upstream commit your fork was cut from>",
   "lastSyncedSha": "<40-char SHA of the newest upstream commit reviewed>",
   "lastSyncedDate": "YYYY-MM-DD",

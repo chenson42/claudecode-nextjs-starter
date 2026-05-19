@@ -166,7 +166,7 @@ Approved with suggestions. All six structural decisions are resolved and logged 
 **6. Dependencies and invariants.**
    - `gh` (GitHub CLI) is a soft dependency. It is used in multiple skills (confirmed by grep). Phase 3 must design the graceful-degradation path per Phase 1 note 1: detect `gh` absence before doing any work, offer `git fetch <upstream>` fallback, exit cleanly and do not write a log entry if both paths fail.
    - The cadence-check loop in CLAUDE.md reads `docs/reviews/log.md` line-by-line and looks for a matching `<type>` token. Adding `upstream-sync` as a new type does not break the loop — no special-casing required. The loop just has a ninth possible type to match after Phase 4 ships.
-   - Fork-detection strategy: check whether `git remote -v` returns the known canonical URL (`https://github.com/chenson42/claudecode.git`). If it does, the cadence check skips the `upstream-sync` row entirely (N/A in the canonical starter). If it does not, the check applies normally. This is more reliable than a marker file and avoids a new config key. Phase 3 formalizes the exact URL constant and where it lives in the skill.
+   - Fork-detection strategy: check whether `git remote -v` returns the known canonical URL (`https://github.com/chenson42/claudecode-nextjs-starter.git`). If it does, the cadence check skips the `upstream-sync` row entirely (N/A in the canonical starter). If it does not, the check applies normally. This is more reliable than a marker file and avoids a new config key. Phase 3 formalizes the exact URL constant and where it lives in the skill.
 
 ### Outputs
 
@@ -192,13 +192,13 @@ Approved with suggestions. All six structural decisions are resolved and logged 
 
 The upstream-sync skill is a pure instruction-layer addition: one skill file, one state file, and edits to four existing files (CLAUDE.md, tech-lead.md, log.md header, and the per-feature status table). No application code, no schema, no permissions. The design below gives Phase 4 exact algorithms for every step so it does not need to revisit any decision.
 
-**Canonical URL call:** `package.json` has no `repository` field (grep returned empty). The canonical URL is hardcoded in the skill as `https://github.com/chenson42/claudecode`. This is intentional — forks will have their own `origin` pointing at their fork, not this URL. The skill compares `git remote get-url origin` against this constant to decide whether to skip the cadence check in the starter itself. Hardcoding inside the skill is correct because forks cannot change the constant without also changing the skill body (which they would only do deliberately). DECISION-009 below records this call.
+**Canonical URL call:** `package.json` has no `repository` field (grep returned empty). The canonical URL is hardcoded in the skill as `https://github.com/chenson42/claudecode-nextjs-starter`. This is intentional — forks will have their own `origin` pointing at their fork, not this URL. The skill compares `git remote get-url origin` against this constant to decide whether to skip the cadence check in the starter itself. Hardcoding inside the skill is correct because forks cannot change the constant without also changing the skill body (which they would only do deliberately). DECISION-009 below records this call.
 
 ### What I did
 
 **1. Canonical URL decision (DECISION-009)**
 
-`package.json` has no `repository.url`. `gh repo view --json url` returns `{"url":"https://github.com/chenson42/claudecode"}`. The skill hardcodes `CANONICAL_URL = "https://github.com/chenson42/claudecode"` and compares it against `git remote get-url origin 2>/dev/null`. Strip a trailing `.git` from the remote value before comparing. This is the only reliable source; reading from `package.json` would require it to be maintained by every fork (it won't be).
+`package.json` has no `repository.url`. `gh repo view --json url` returns `{"url":"https://github.com/chenson42/claudecode-nextjs-starter"}`. The skill hardcodes `CANONICAL_URL = "https://github.com/chenson42/claudecode-nextjs-starter"` and compares it against `git remote get-url origin 2>/dev/null`. Strip a trailing `.git` from the remote value before comparing. This is the only reliable source; reading from `package.json` would require it to be maintained by every fork (it won't be).
 
 **2. SKILL.md section outline and algorithms**
 
@@ -241,7 +241,7 @@ Section structure (Phase 4 fills in the prose):
 
 `MODE=gh`:
 ```
-gh api repos/chenson42/claudecode/commits \
+gh api repos/chenson42/claudecode-nextjs-starter/commits \
   --paginate \
   --jq '.[] | {sha: .sha, date: .commit.author.date, author: .commit.author.name, message: .commit.message, files: [.files[]?.filename]}' \
   -X GET -F since=<lastSyncedDate> -F sha=main
@@ -292,7 +292,7 @@ Last synced through: `abc1234` (2026-05-04)
 - On any failure before completing Step 3: write NOTHING to log or state. Print the specific failure reason and exit.
 
 **Failure modes:**
-- A: `gh` absent AND no `upstream` remote AND user is not vendored-path → "Cannot reach upstream. Install gh CLI or run `git remote add upstream https://github.com/chenson42/claudecode` and retry."
+- A: `gh` absent AND no `upstream` remote AND user is not vendored-path → "Cannot reach upstream. Install gh CLI or run `git remote add upstream https://github.com/chenson42/claudecode-nextjs-starter` and retry."
 - B: Vendored fork, user cannot supply upstream URL → "Cannot determine upstream. Provide upstream URL and fork-point SHA to proceed."
 - C: `gh api` returns non-200 / network error → "GitHub API unreachable. No log entry written."
 - D: `lastSyncedSha` not found on upstream (rebase/force-push) → "Last-synced SHA not found on upstream/main. Supply a new baseline SHA."
@@ -301,7 +301,7 @@ Last synced through: `abc1234` (2026-05-04)
 
 ```json
 {
-  "upstreamUrl": "https://github.com/chenson42/claudecode",
+  "upstreamUrl": "https://github.com/chenson42/claudecode-nextjs-starter",
   "forkPointSha": "3f9f693...",
   "lastSyncedSha": "3f9f693...",
   "lastSyncedDate": "2026-05-18",
@@ -395,9 +395,9 @@ The skill had no state-file write step. The addition was made as designed. The m
 
 **Pre-flight simulation result:**
 
-Running `/upstream-sync` in this repo (`chenson42/claudecode`):
-1. `git remote get-url origin` returns `https://github.com/chenson42/claudecode` (confirmed live).
-2. After stripping `.git` (no `.git` suffix present), result equals `CANONICAL_URL = "https://github.com/chenson42/claudecode"`.
+Running `/upstream-sync` in this repo (`chenson42/claudecode-nextjs-starter`):
+1. `git remote get-url origin` returns `https://github.com/chenson42/claudecode-nextjs-starter` (confirmed live).
+2. After stripping `.git` (no `.git` suffix present), result equals `CANONICAL_URL = "https://github.com/chenson42/claudecode-nextjs-starter"`.
 3. Skill prints: "upstream-sync: this is the canonical starter repo — skipping (N/A)." and exits.
 4. No log entry written. No state file written. Correct.
 
@@ -439,7 +439,7 @@ All nine verification checks pass. The implementation matches the Phase 3 design
 - **Lint stash round-trip:** `git stash && npm run lint` produced the identical `e2e/timezone-safe-dates.spec.ts:100:18 no-restricted-syntax` error before and after Phase 4's changes. Confirmed pre-existing; not Phase 4's regression. Flagged for follow-up: `e2e/timezone-safe-dates.spec.ts` line 100 uses `toLocaleString` directly in an assertion context, which the rule catches. A separate cleanup ticket is warranted.
 - **Vitest:** Cannot start in this environment (Node 18.19.0 < required >=20.9.0 — `SyntaxError: 'styleText' not exported from node:util`). Phase 4 touched zero TypeScript source files and introduced no new test files, so no Vitest regressions are expected. Pre-existing environment constraint; not a Phase 4 defect.
 - **SKILL.md pre-flight audit (three mental scenarios):**
-  - Canonical repo (this repo): `git remote get-url origin` returns `https://github.com/chenson42/claudecode.git`. After `.git` strip, matches `CANONICAL_URL`. Skill exits cleanly — no log entry, no state file write. Verified live: strip + compare = MATCH.
+  - Canonical repo (this repo): `git remote get-url origin` returns `https://github.com/chenson42/claudecode-nextjs-starter.git`. After `.git` strip, matches `CANONICAL_URL`. Skill exits cleanly — no log entry, no state file write. Verified live: strip + compare = MATCH.
   - Fork with `gh`: Check 1 does not match canonical URL. Check 2 finds `gh`. Check 3 reads state file or goes first-run. Correct path.
   - Fork without `gh`, no upstream remote: Check 2 finds neither — goes to Failure mode A. Prints message, exits cleanly. No log entry written. Correct per Phase 1 note 4 ("failed run writes NOTHING").
 - **Classification heuristic review:** All four tiers (must-pull / should-pull / optional / skip) have concrete, enumerated signals. A fork-owner with no prior context can apply them without guessing. Files-touched column is present in the output format. Phase 1 note 2 satisfied.
@@ -451,7 +451,7 @@ All nine verification checks pass. The implementation matches the Phase 3 design
 - **log.md header:** `upstream-sync (cadence: 14 days) — fork-only; N/A in the canonical starter` added to the `<type>` bullet list. Format matches neighbors exactly.
 - **personalize-starter/SKILL.md:** Step 8 added at the correct position (before Step 9 "Don't commit"). JSON schema present with all five required fields: `upstreamUrl`, `forkPointSha`, `lastSyncedSha`, `lastSyncedDate`, `personalizedPaths`. Fields match Phase 2 and Phase 3 schema exactly. Step runs after all find-replace passes (Steps 4-5), so `personalizedPaths` reflects actual rewrites. Merge-vs-overwrite logic present for re-runs. Existing flow is intact — Steps 1-7 and Step 9 unchanged.
 - **State file gitignore check:** `.gitignore` has no entry for `.claude/` or `upstream-state.json`. State file will not be excluded from the fork's commit.
-- **Pre-flight simulation (live):** `git remote get-url origin` = `https://github.com/chenson42/claudecode.git`. After `.git` strip = `https://github.com/chenson42/claudecode` = `CANONICAL_URL`. Skill would exit with "canonical starter repo — skipping (N/A)." — zero writes to log or state file.
+- **Pre-flight simulation (live):** `git remote get-url origin` = `https://github.com/chenson42/claudecode-nextjs-starter.git`. After `.git` strip = `https://github.com/chenson42/claudecode-nextjs-starter` = `CANONICAL_URL`. Skill would exit with "canonical starter repo — skipping (N/A)." — zero writes to log or state file.
 - **Phase 3/Phase 4 self-consistency:** No undocumented divergences. Phase 4 documented its two deliberate deviations (step ordering in personalize-starter; empty-string initial values for SHA fields) and both are consistent with Phase 3 intent.
 
 ### Outputs
@@ -482,7 +482,7 @@ The upstream-sync skill shipped exactly as Phase 1 described. All five critical 
 ### What I did
 
 **Check 1 — Pre-flight canonical-repo skip.**
-`git remote get-url origin` returns `https://github.com/chenson42/claudecode.git`. SKILL.md Pre-flight Check 1 strips the `.git` suffix before comparing to `CANONICAL_URL = "https://github.com/chenson42/claudecode"`. After stripping: exact match. The skill would print the "canonical starter repo — skipping" message and exit without writing anything. The `.git`-strip logic is explicit in the SKILL.md prose. Both `https` and `ssh` URL forms are handled only for the `.git` suffix strip — the comparison is URL-exact otherwise, meaning an `ssh` remote (`git@github.com:chenson42/claudecode.git`) would NOT match. This is an acceptable limitation for the canonical-starter case (the starter ships with an `https` origin) and is correctly left as a follow-up, not a blocker.
+`git remote get-url origin` returns `https://github.com/chenson42/claudecode-nextjs-starter.git`. SKILL.md Pre-flight Check 1 strips the `.git` suffix before comparing to `CANONICAL_URL = "https://github.com/chenson42/claudecode-nextjs-starter"`. After stripping: exact match. The skill would print the "canonical starter repo — skipping" message and exit without writing anything. The `.git`-strip logic is explicit in the SKILL.md prose. Both `https` and `ssh` URL forms are handled only for the `.git` suffix strip — the comparison is URL-exact otherwise, meaning an `ssh` remote (`git@github.com:chenson42/claudecode-nextjs-starter.git`) would NOT match. This is an acceptable limitation for the canonical-starter case (the starter ships with an `https` origin) and is correctly left as a follow-up, not a blocker.
 
 **Check 2 — "Failed run writes NOTHING" invariant.**
 Every failure path (Mode A, B, C, D) and the canonical-repo pre-flight exit explicitly prints a message and stops. The Output Summary table in the skill confirms: `Pre-flight: canonical repo — No / No / No`, `Pre-flight: tooling failure — No / No / No`, `Any failure before Step 3 — No / No / No`. Step 6 is the only place that writes to log and state file, and Step 6 is only reached after Step 3 completes successfully. Invariant enforced.
@@ -513,7 +513,7 @@ The lint error at `e2e/timezone-safe-dates.spec.ts:100` (`toLocaleString` in `pa
 ### Open questions / handoff notes
 
 - **Follow-up (deferred items).** If a fork-owner acts on only some of a run's punch-list and the rest are skipped, the next run will not resurface the unaddressed items (state file advances past them). A `deferredItems` array in `.claude/upstream-state.json` would fix this. Track as a future improvement to the upstream-sync skill.
-- **Follow-up (SSH remote).** The canonical-repo skip compares after stripping `.git` from the URL, but an `ssh` remote (`git@github.com:chenson42/claudecode.git`) would not match and the skip would not fire in the canonical repo if the user happens to have an ssh remote. Low priority (the starter ships with `https` by default), but worth noting for a future SKILL.md revision.
+- **Follow-up (SSH remote).** The canonical-repo skip compares after stripping `.git` from the URL, but an `ssh` remote (`git@github.com:chenson42/claudecode-nextjs-starter.git`) would not match and the skip would not fire in the canonical repo if the user happens to have an ssh remote. Low priority (the starter ships with `https` by default), but worth noting for a future SKILL.md revision.
 - **Lint.** `e2e/timezone-safe-dates.spec.ts:100` — follow-up for the timezone work-log, not this one.
 
 ---

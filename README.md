@@ -108,7 +108,7 @@ The whole approach is documented in [`CLAUDE.md`](CLAUDE.md). Fork it, trim it, 
 
 ```bash
 # 1. Clone + install
-gh repo clone chenson42/claudecode my-app
+gh repo clone chenson42/claudecode-nextjs-starter my-app
 cd my-app
 npm install
 

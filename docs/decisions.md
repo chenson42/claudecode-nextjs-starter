@@ -4,6 +4,32 @@ Architectural and implementation decisions for the Claude Code Starter. Newest f
 
 ---
 
+## DECISION-011: Repository renamed from `claudecode` to `claudecode-nextjs-starter`
+
+**Status:** Resolved
+**Date:** 2026-05-19
+
+**Decision:** Renamed the canonical repository from `github.com/chenson42/claudecode` to `github.com/chenson42/claudecode-nextjs-starter`.
+
+**Rationale:** The original name had three problems:
+
+1. **Trademark adjacency.** "Claude Code" is Anthropic's product name. A repo called `claudecode` reads as either official or as squatting — neither is intended. The new name contextualizes the brand-signal as "Next.js starter for Claude Code workflows" rather than "is Claude Code."
+2. **Opacity.** A user landing on `chenson42/claudecode` had no idea what the artifact is. The new name describes it.
+3. **Aging.** If Anthropic renames its product, the old repo name becomes stale; the new name still reads sensibly because "Next.js starter" carries the artifact identity.
+
+**Alternatives considered:** `agent-sdlc-starter`, `phase-gate-starter`, `agent-pipeline-starter` — all rejected because they buried the "Claude Code" signal entirely, which would hurt discoverability for the intended audience (people searching for Claude Code workflows in a Next.js context). The chosen name balances keeping the searchable brand-signal while no longer reading as a product-name claim.
+
+**Impact:**
+
+- All in-repo references to `chenson42/claudecode` updated to `chenson42/claudecode-nextjs-starter` (skills, decisions, work-logs, README, deck, package.json `name`).
+- `package.json` `name` field changes from `claudecode-starter` to `claudecode-nextjs-starter`. The `personalize-starter` skill's "is this still the canonical starter?" marker is updated accordingly.
+- `DECISION-009`'s hardcoded `CANONICAL_URL` constant is updated; the architectural call from `DECISION-009` (hardcode rather than read from `package.json`) is unchanged.
+- GitHub auto-redirects `chenson42/claudecode` → `chenson42/claudecode-nextjs-starter` forever, so existing clones, commit references, and external links keep working. The repo rename itself is a separate manual operation (via `gh repo rename` or GitHub web UI) that the user runs.
+
+**Tradeoff:** Any future Anthropic product rename re-opens the question. The hedge is that the artifact identity ("Next.js starter") doesn't depend on the brand-signal, so a future rename would be a smaller delta than this one.
+
+---
+
 ## DECISION-010: Commit-message standard — hook delivery, script placement, grandfather cutoff, MTTR scope
 
 **Status:** Resolved
@@ -28,13 +54,13 @@ Four sub-decisions bundled because they are interdependent:
 **Status:** Resolved
 **Date:** 2026-05-18
 
-**Decision:** The canonical starter URL (`https://github.com/chenson42/claudecode`) is hardcoded as a constant inside `.claude/skills/upstream-sync/SKILL.md`. It is NOT read from `package.json`.
+**Decision:** The canonical starter URL (`https://github.com/chenson42/claudecode-nextjs-starter`) is hardcoded as a constant inside `.claude/skills/upstream-sync/SKILL.md`. It is NOT read from `package.json`.
 
 **Rationale:** `package.json` in this project has no `repository` field (confirmed by grep). Requiring forks to populate `package.json` to make fork-detection work would be a silent failure mode — most forks won't know to add it. The hardcoded URL is inspectable inside the skill file itself, and a fork that deliberately wants to change the upstream target would edit the skill anyway. The alternative (reading from some config field) adds a new convention that nothing else in the project uses.
 
 **Tradeoff:** If the canonical repo ever moves (org rename, repo rename), every fork's skill file would need to be updated. This is acceptable because repo moves are rare and the skill is the one file you'd update anyway.
 
-**Impact:** Phase 4 sets `CANONICAL_URL = "https://github.com/chenson42/claudecode"` in the skill's pre-flight section. Trailing `.git` is stripped from `git remote get-url origin` output before comparison.
+**Impact:** Phase 4 sets `CANONICAL_URL = "https://github.com/chenson42/claudecode-nextjs-starter"` in the skill's pre-flight section. Trailing `.git` is stripped from `git remote get-url origin` output before comparison.
 
 ---
 
