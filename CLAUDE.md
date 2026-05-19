@@ -230,7 +230,7 @@ Eight reviews run on rolling cadences to keep the codebase, docs, security postu
 | **Security** | 30 d | api-developer + database-admin | A monthly sweep of auth boundaries, secret handling, dependency CVEs, and OWASP surface area catches the slow drift between active security incidents. |
 | **Agent & instruction** | 30 d | tech-lead | Agents and `.claude/` settings accumulate stale guidance, unused tools, and references to features that no longer exist; a monthly review keeps the instruction layer honest. |
 | **Dependencies** | 30 d | deployment-engineer | A monthly review of `npm outdated` and `npm audit` keeps the dependency graph current without inviting weekly churn. |
-| **Upstream sync** | 14 d | tech-lead | Fork-only — N/A in the canonical starter. Surfaces commits on the upstream starter's `main` that have not been pulled into the fork; classifies each as must-pull / should-pull / optional / skip. Runs via the `upstream-sync` skill. |
+| **Upstream sync** | 14 d | tech-lead | Derived-repo-only — N/A in the canonical starter. Works for true git forks *and* projects scaffolded from the starter (no shared git history). Surfaces commits on the upstream starter's `main` not yet pulled in; classifies each as must-pull / should-pull / optional / skip. Runs via the `upstream-sync` skill. |
 
 Ownership claims for each review are reflected in the relevant agent file under `.claude/agents/` — read the named owner's agent file for the specifics of what each review covers and where its detail file lands.
 

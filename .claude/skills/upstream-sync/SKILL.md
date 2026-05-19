@@ -1,13 +1,20 @@
 ---
 name: upstream-sync
-description: Review upstream starter commits since your fork point and produce a classified punch-list (must-pull / should-pull / optional / skip). Runs every 14 days in a fork; the canonical starter detects itself and exits immediately.
+description: Review upstream starter commits since your baseline and produce a classified punch-list (must-pull / should-pull / optional / skip). Works for true git forks AND projects merely scaffolded from the starter (no shared git history). Runs every 14 days; the canonical starter detects itself and exits immediately.
 ---
 
 # Upstream Sync
 
-When the user invokes `/upstream-sync`, surface which commits have landed on the upstream starter's `main` branch since your last sync, classify each one, and log the result. This skill never applies commits — it produces a punch-list the fork-owner reviews before doing any `git` operation.
+When the user invokes `/upstream-sync`, surface which commits have landed on the upstream starter's `main` branch since your last sync, classify each one, and log the result. This skill never applies commits — it produces a punch-list the project owner reviews before doing any `git` operation.
 
-**This skill is fork-only.** If run inside the canonical `chenson42/claudecode-nextjs-starter` repo it detects that automatically and exits without writing anything.
+**This skill works for two kinds of derived repo:**
+
+1. **True git fork** — `origin` is a fork of the canonical repo, or an `upstream` remote points at it. Shared git history exists, so the baseline can be computed with `git merge-base`.
+2. **Scaffolded / vendored copy** — the project was *started from* the starter (cloned-then-detached, copied, or `degit`-style) and has **no shared git history** with the canonical repo. `git merge-base` will not work. This is a fully supported case: the GitHub-API path (`MODE=gh`) queries the canonical repo's commit list directly and only needs a baseline SHA or date, not a common ancestor.
+
+Throughout this skill "baseline" means *the canonical commit your project last matched* — a true fork point for case 1, or the starter commit/date you scaffolded from for case 2. The state-file key is still named `forkPointSha` for backward compatibility; read it as "baseline SHA" regardless of repo kind.
+
+**Canonical self-detection.** If run inside the canonical `chenson42/claudecode-nextjs-starter` repo it detects that automatically and exits without writing anything.
 
 ---
 
@@ -31,6 +38,7 @@ The following paths have NOT been run against real data:
 - The markdown punch-list rendering against real data.
 - The state-file update on a non-empty run.
 - The conflict-flagging against `personalizedPaths`.
+- The scaffolded-copy baseline strategies (Step 2, Strategies 2–4): the `merge-base` no-common-ancestor fall-through, the user-supplied starter SHA, the date-resolved baseline (`gh ... -f until=`), and the latest-canonical last resort.
 
 **If you are the first fork-owner running this skill: you are the first real test.** If something fails or produces obviously wrong output, please open an issue at `github.com/chenson42/claudecode-nextjs-starter` so future forks benefit from the fix. The honest version of this skill's status is "designed carefully, verified structurally, ready for first contact."
 
@@ -40,7 +48,7 @@ The following paths have NOT been run against real data:
 
 Run all three checks before doing any work. Exit cleanly on any failure — do NOT write a log entry for a failed run.
 
-### Check 1 — Fork detection
+### Check 1 — Canonical self-detection + repo-kind classification
 
 ```bash
 git remote get-url origin 2>/dev/null
@@ -52,11 +60,19 @@ Strip a trailing `.git` from the result. Compare to the constant:
 CANONICAL_URL = "https://github.com/chenson42/claudecode-nextjs-starter"
 ```
 
-If the two match, print:
+**If `origin` matches `CANONICAL_URL`**, print:
 
 > `upstream-sync: this is the canonical starter repo — skipping (N/A).`
 
 Stop here. Do not write a log entry. Do not write or read the state file.
+
+**Otherwise classify the repo kind** (this only affects how the baseline is computed in Step 2 — every kind below is supported):
+
+- `origin` is empty / the command failed → **scaffolded copy, no remote**. Repo kind = `scaffolded`.
+- An `upstream` remote exists (`git remote get-url upstream` succeeds) → **true fork**. Repo kind = `fork`.
+- `origin` is set to something other than canonical and there is no `upstream` remote → could be either a fork-without-upstream-remote or a scaffolded copy. Defer the decision: it is resolved in Step 2 by testing for shared git history (see "Determine baseline" below). Repo kind = `unknown-pending`.
+
+Repo kind never blocks the run. It only selects the baseline strategy in Step 2.
 
 ### Check 2 — Tooling
 
@@ -101,36 +117,58 @@ Print:
 
 - `MODE=gh`: use `CANONICAL_URL` (`https://github.com/chenson42/claudecode-nextjs-starter`). Confirm with the user before proceeding.
 - `MODE=git`: run `git remote get-url upstream` to get the URL.
-- Vendored fork (no remote, no gh): ask the user to supply the upstream URL manually. If they cannot, go to **Failure mode B**.
+- Scaffolded copy, no remote, no gh: ask the user to supply the upstream URL manually. If they cannot, go to **Failure mode B**.
 
-**Determine forkPointSha:**
+**Determine the baseline (`forkPointSha`).** Pick the first strategy that applies:
 
-Ask the user:
-
-> "What commit SHA marks your fork point? Press Enter to compute automatically via `git merge-base`."
-
-If the user presses Enter and `MODE=git`:
+**Strategy 1 — shared git history (true fork).** Only attempt this if `MODE=git` (an `upstream` remote exists). Test for a common ancestor first so a scaffolded copy doesn't silently produce a garbage baseline:
 
 ```bash
 git fetch upstream
-git merge-base HEAD upstream/main
+git merge-base HEAD upstream/main 2>/dev/null
 ```
 
-Use the result as `forkPointSha`. If `MODE=gh` and the upstream remote is not configured locally, ask the user to supply the SHA. The most recent upstream SHA visible in `git log --oneline -1` of the starter at the time of forking is also acceptable — look it up with:
+If this prints a SHA, that is the fork point — use it. Confirm the resolved repo kind as `fork`. If it prints nothing / errors (no common ancestor — the project was scaffolded, not forked), fall through to Strategy 2 and record repo kind as `scaffolded`.
+
+**Strategy 2 — user-supplied starter SHA (scaffolded copy, exact).** Ask the user:
+
+> "This project has no shared git history with the starter, so I can't compute a fork point. What starter commit SHA did you scaffold from? (Check the starter's `git log` from when you copied it, or press Enter to use a date instead.)"
+
+If they supply a SHA, use it as `forkPointSha`.
+
+**Strategy 3 — date-based baseline (scaffolded copy, approximate).** If the user does not know the SHA, ask:
+
+> "Roughly what date did you scaffold this project from the starter? (YYYY-MM-DD — err earlier rather than later; a too-early date only means you re-review a few extra commits.)"
+
+Resolve that date to the newest canonical commit at/before it:
+
+```bash
+gh api "repos/chenson42/claudecode-nextjs-starter/commits" -X GET -f sha=main -f until=<scaffold-date>T23:59:59Z --jq '.[0].sha'
+```
+
+Use the returned SHA as `forkPointSha`. (`MODE=gh`'s Step 3 fetch is date-windowed anyway, so an approximate baseline is safe — worst case the first punch-list shows a few already-applied commits, which the user marks skip.)
+
+**Strategy 4 — latest canonical (last resort).** If the user cannot give a SHA or a date, offer to baseline at the current canonical `main` head:
 
 ```bash
 gh api repos/chenson42/claudecode-nextjs-starter/commits/main --jq '.sha'
 ```
 
+Warn the user: this means the *first* sync reports "nothing new" and only commits landing **after today** will surface. Only use this if the user explicitly accepts that trade-off.
+
+If none of Strategies 1–4 can produce a baseline (no gh, no upstream remote, no user input), go to **Failure mode B**.
+
 Set:
 
 ```json
 {
-  "forkPointSha": "<computed or user-supplied>",
+  "forkPointSha": "<resolved baseline SHA>",
   "lastSyncedSha": "<same as forkPointSha>",
-  "lastSyncedDate": "<today YYYY-MM-DD>"
+  "lastSyncedDate": "<scaffold/fork date if known, else today YYYY-MM-DD>"
 }
 ```
+
+`lastSyncedDate` seeds the `since=` window for the `MODE=gh` fetch in Step 3 — set it to the fork/scaffold date when known (not today), or the first run will miss commits between the baseline and today.
 
 Write `.claude/upstream-state.json` (full schema in the **State File Schema** section below).
 
@@ -269,9 +307,11 @@ YYYY-MM-DD | upstream-sync | nothing new since last sync
 > `  git remote add upstream https://github.com/chenson42/claudecode-nextjs-starter`
 > `Then retry /upstream-sync.`
 
-**Mode B — Vendored fork, user cannot supply URL:**
+**Mode B — Scaffolded copy, no baseline obtainable:**
 
-> `Cannot determine upstream. Provide the upstream URL and your fork-point SHA to proceed.`
+> `Cannot determine a baseline. This project has no shared git history with the starter and no upstream`
+> `remote or gh access. Provide the canonical upstream URL plus either the starter SHA you scaffolded`
+> `from or an approximate scaffold date to proceed.`
 
 **Mode C — GitHub API unreachable (network error or non-200 response):**
 
@@ -291,7 +331,7 @@ YYYY-MM-DD | upstream-sync | nothing new since last sync
 ```json
 {
   "upstreamUrl": "https://github.com/chenson42/claudecode-nextjs-starter",
-  "forkPointSha": "<40-char SHA of the upstream commit your fork was cut from>",
+  "forkPointSha": "<40-char baseline SHA: the upstream commit your fork was cut from, OR the starter commit your project was scaffolded from>",
   "lastSyncedSha": "<40-char SHA of the newest upstream commit reviewed>",
   "lastSyncedDate": "YYYY-MM-DD",
   "personalizedPaths": [
