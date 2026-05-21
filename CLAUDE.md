@@ -298,6 +298,7 @@ Slugs are short, lowercase, hyphenated, and stable. Don't rename them after the 
 6. **Permissions and flags stay separate.** Per-user permission → `FEATURES` + `hasFeature()`. Per-environment toggle → `feature_flags` + `isFlagEnabled()`. A feature usually needs both.
 7. **Audit security-sensitive mutations.** Role changes, flag toggles, TOTP enrolment/reset, deactivations write to `audit_events`.
 8. **No code before the work-log.** If you are about to call Edit, Write, or `git checkout -b` for a non-trivial request and there is no work-log entry for it, stop and run `/new-feature` first. The Classification table at the top of the Development Pipeline section defines "non-trivial."
+9. **Use `/merge-pr` for any PR merged with `--delete-branch`.** Before deleting the head branch, the skill retargets any open PRs whose base is that branch to `main`. Without it, `gh pr merge N --delete-branch` auto-closes every downstream PR — a known GitHub mechanic that bit the npvitals fork twice in a single session. Invoke once per PR, bottom-up, when merging a stack. Plain `gh pr merge` is only safe when the PR has no dependents *and* you're not deleting the branch.
 
 ## Commit Message Standards
 
