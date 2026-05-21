@@ -107,7 +107,7 @@ Agents live in `.claude/agents/`. Spawn the right one for the phase.
 |-------|---------------|---------------|
 | **analyst** | Phase 1 & 6 | Functional refinement before design; shipped-vs-intent review after QA. |
 | **architect** | Phase 2 | New subdirectories, npm dependencies, structural changes. |
-| **tech-lead** | Phase 3 | Before writing >50 lines; authors the design doc. |
+| **tech-lead** | Phase 3 | For any Feature / bug fix or Polish / visual / refactor class request (see Classification table); authors the design doc. |
 | **database-admin** | Phase 4 (schema) | `schema.ts` changes, Drizzle Kit work, indexes. |
 | **api-developer** | Phase 4 (server) | Route handlers, server actions, business logic. |
 | **ux-developer** | Phase 4 (client) | React components, admin pages, forms. |
@@ -121,7 +121,20 @@ When handing off between phases, preserve the prior phase's full output in the w
 
 ## Development Pipeline
 
-Every change — new feature or bug fix — flows through six phases. Loop-backs are expected.
+### Classification — Required Before Any Code Edit
+
+Before editing a file, creating a branch, or invoking an implementer agent, classify the incoming request:
+
+| Class | Definition | Pipeline |
+|-------|-----------|----------|
+| **Trivial** | Typo fix, single-line config edit, doc-only change, answering a question, running existing tests | No work-log, no pipeline. |
+| **Polish / visual / refactor** | CSS edits, font/color changes, renaming, restructuring — no new deps, no schema change, no API surface change | Work-log entry required. Phases 2 & 3 may be skipped with explicit notation ("Skipping Phase 2 — no new deps or structural change"). |
+| **Feature / bug fix** | Touches >1 non-trivially related file, adds a dependency, changes the schema, or introduces new user-visible behavior | Full pipeline via `/new-feature`. |
+| **Spike** | Exploratory, time-boxed; no production code committed | Document findings in `docs/decisions.md` if a decision results. |
+
+If the request is ambiguous, default to **Feature**. Do not invent a lower classification to avoid the pipeline.
+
+Every non-trivial change flows through six phases. Loop-backs are expected.
 
 ```
 Phase 1            Phase 2            Phase 3
@@ -183,15 +196,15 @@ A loop-back from any later phase returns to the **earliest** phase where the fai
 | React components, pages, forms | **ux-developer** |
 | Spans server + client and is small | **full-stack-developer** |
 
-**Gate:** Typecheck passes. The build passes. `npm run check:audit` reports zero violations. No native browser dialogs. No `console.log` left in production paths. All invariants honored. Audit events written for security-sensitive mutations.
+**Gate:** Typecheck passes. The build passes. `npm run check:audit` reports zero violations. No native browser dialogs. No `console.log` left in production paths. All invariants honored. Audit events written for security-sensitive mutations. **For any feature that touches `src/auth.ts`, `src/app/(auth)/`, `src/app/api/auth/`, or `src/lib/auth/`, a running-server e2e smoke covering the full login path (including an MFA-enrolled user) is required before Phase 5 can begin — this catches module-resolution defects that unit tests cannot (see the originating downstream incident referenced in the work-log).**
 **Loop-back:** Design unbuildable returns to Phase 3. Architectural problem discovered returns to Phase 2.
 
 ### Phase 5 — Test Verification (qa)
 
 **Trigger:** Implementer reports Phase 4 complete.
 **Output:** Build Verification Report in the work-log.
-**Gate:** Verdict must be `PASS`.
-**Loop-back:** `FAIL` returns to the implementer (Phase 4) with failing tests cited `file:line`. If a failure reveals a design flaw, escalate to Phase 3.
+**Gate:** Verdict must be `PASS` or `BLOCKED`. **On auth-touching features (see Phase 4 gate), a `PASS` verdict requires that the e2e suite was run against a real dev server with an MFA-enrolled seeded user. A deferred or skipped e2e check produces `BLOCKED`, not `PASS` — a deferred advisory is not a green light.**
+**Loop-back:** `FAIL` returns to the implementer (Phase 4) with failing tests cited `file:line`. `BLOCKED` returns to the user with the unmet prerequisite named. If a failure reveals a design flaw, escalate to Phase 3.
 
 ### Phase 6 — Shipped vs Intent (analyst)
 
@@ -236,7 +249,12 @@ Ownership claims for each review are reflected in the relevant agent file under 
 
 ### Cadence Check at Session Start
 
-`docs/reviews/log.md` is the source of truth for review history. Before starting any non-trivial work, read it and check the most recent date for each review type against its cadence. If any review exceeds its cadence — or has never been run — surface this:
+At session start, before responding to any non-trivial request:
+
+1. Read `docs/reviews/log.md`. Note any review type whose last entry exceeds its cadence — or has never been run.
+2. Read the most recent file in `docs/work-log/`. Note any in-flight work and which pipeline phase it is on.
+3. Classify the incoming request using the Classification table above.
+4. If any reviews are overdue, surface them before starting new work:
 
 > "Three reviews are due before we start:
 > - Test coverage: 12 days (last YYYY-MM-DD)
@@ -247,7 +265,7 @@ Ownership claims for each review are reflected in the relevant agent file under 
 
 If the user says proceed, do not append a fake log entry — the next session will surface the gap again.
 
-**Trivial work skips the cadence check:** typo fixes, single-line config edits, answering codebase questions, running existing test suites.
+**Trivial work (Classification class: Trivial) skips the cadence check entirely.**
 
 ### Logging Outcomes
 
@@ -279,6 +297,7 @@ Slugs are short, lowercase, hyphenated, and stable. Don't rename them after the 
 5. **Use `/pre-push` before every push to `main`.** Typecheck, build, schema check, release notes. The skill never pushes — it only reports readiness.
 6. **Permissions and flags stay separate.** Per-user permission → `FEATURES` + `hasFeature()`. Per-environment toggle → `feature_flags` + `isFlagEnabled()`. A feature usually needs both.
 7. **Audit security-sensitive mutations.** Role changes, flag toggles, TOTP enrolment/reset, deactivations write to `audit_events`.
+8. **No code before the work-log.** If you are about to call Edit, Write, or `git checkout -b` for a non-trivial request and there is no work-log entry for it, stop and run `/new-feature` first. The Classification table at the top of the Development Pipeline section defines "non-trivial."
 
 ## Commit Message Standards
 
