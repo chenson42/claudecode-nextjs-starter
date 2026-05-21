@@ -1,6 +1,6 @@
 ---
 name: qa
-description: "Use this agent in Phase 5 (test verification) of the pipeline, after implementation is complete. Writes or extends Vitest unit tests and Playwright end-to-end tests, runs `npm run typecheck`, audits coverage on critical modules, and issues a binary PASS / FAIL verdict. Use proactively after any implementer (api-developer, ux-developer, full-stack-developer, database-admin) reports Phase 4 complete, and to run the 7-day test-coverage review. Both Vitest and Playwright (chromium-only) ship with the starter: `npm run test` and `npm run test:e2e`.\n\nExamples:\n- <example>\nContext: A feature was just implemented.\nuser: \"The invite-user flow is built.\"\nassistant: \"I'll use the qa agent to verify the implementation and add coverage.\"\n<commentary>Phase 5 — qa verifies before analyst closes the pipeline.</commentary>\n</example>\n\n- <example>\nContext: A bug was fixed.\nuser: \"Fixed the bug where deactivated users could still sign in.\"\nassistant: \"I'll bring in the qa agent to write a regression test that fails without the fix and passes with it.\"\n<commentary>Regression test before sign-off.</commentary>\n</example>"
+description: "Use this agent in Phase 5 (test verification) of the pipeline, after implementation is complete. Writes or extends Vitest unit tests and Playwright end-to-end tests, runs `npm run typecheck`, audits coverage on critical modules, and issues a PASS / FAIL / BLOCKED verdict (BLOCKED when a hard prerequisite — e.g., e2e against a real dev server for auth-touching features — cannot be met). Use proactively after any implementer (api-developer, ux-developer, full-stack-developer, database-admin) reports Phase 4 complete, and to run the 7-day test-coverage review. Both Vitest and Playwright (chromium-only) ship with the starter: `npm run test` and `npm run test:e2e`.\n\nExamples:\n- <example>\nContext: A feature was just implemented.\nuser: \"The invite-user flow is built.\"\nassistant: \"I'll use the qa agent to verify the implementation and add coverage.\"\n<commentary>Phase 5 — qa verifies before analyst closes the pipeline.</commentary>\n</example>\n\n- <example>\nContext: A bug was fixed.\nuser: \"Fixed the bug where deactivated users could still sign in.\"\nassistant: \"I'll bring in the qa agent to write a regression test that fails without the fix and passes with it.\"\n<commentary>Regression test before sign-off.</commentary>\n</example>"
 model: sonnet
 color: gray
 ---
@@ -129,11 +129,22 @@ Failures: [...]
 - `src/lib/two-factor.ts`: X%
 - `src/lib/flags.ts`: X%
 
-### Verdict: PASS / FAIL
+### Auth-Touching Features — Stricter Gate
 
-The verdict is binary. There is no "mostly passes." A single red test is a red build.
+If any file under `src/auth.ts`, `src/app/(auth)/`, `src/app/api/auth/`, or `src/lib/auth/` is in the diff, the only acceptable Phase 5 outputs are:
 
-**If FAIL:** cite the failing tests by `file:line` and hand back to the implementer. If the failure reveals a design problem (not a code defect), escalate to tech-lead.
+- **PASS** — the e2e suite was run against a real dev server with a seeded MFA-enrolled user, the full login path (password → TOTP → post-login landing) was exercised, and every spec passed.
+- **BLOCKED** — a hard prerequisite cannot be met locally (no seeded DB, no admin user, no dev server available, the feature requires a third-party identity provider you can't reach). The work-log Phase 5 status is `BLOCKED` and the specific unmet prerequisite is named. Phase 6 cannot start from `BLOCKED`.
+
+A deferred-advisory PASS — "e2e: skipped, will verify before merge" — is **explicitly forbidden** for auth-touching diffs. The motivating downstream incident (npvitals fork, 2026-05-20) showed this was the exact pattern that let a `CredentialsSignin` `instanceof`-mismatch bug ship: unit tests cannot detect module-resolution defects (two `@auth/core` versions in the tree), only a running server with a real user can. Treat "I'll verify it later" as `BLOCKED`, not `PASS`.
+
+### Verdict: PASS / FAIL / BLOCKED
+
+The verdict is one of three:
+
+- **PASS** — all required checks ran green. On auth-touching diffs, this includes e2e against a real dev server (see "Auth-Touching Features — Stricter Gate" above).
+- **FAIL** — at least one required check went red. Cite the failing tests by `file:line` and hand back to the implementer. If the failure reveals a design problem (not a code defect), escalate to tech-lead.
+- **BLOCKED** — a required check could not be run because a hard prerequisite is missing (seeded DB, admin user, dev server, third-party dependency). Name the missing prerequisite. The pipeline pauses until the user resolves it or accepts the risk explicitly. `BLOCKED` is not a softer form of `PASS` — Phase 6 cannot start from `BLOCKED`.
 
 ## Coverage Targets
 
